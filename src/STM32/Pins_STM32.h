@@ -260,7 +260,7 @@ extern Pin AuxSerialRxTxPins[NumberSerialPins];
     extern Pin Aux2SerialRxTxPins[NumberSerialPins];
 #endif
 
-#define SERIAL_MAIN_DEVICE  SerialUSB  //USB
+#define SERIAL_MAIN_DEVICE  UART_Slot0 // SerialUSB  //USB
 
 
 

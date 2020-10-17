@@ -309,7 +309,7 @@ const Mutex *Tasks::GetSysDirMutex() noexcept
 // This intercepts the 1ms system tick
 extern "C" void vApplicationTickHook() noexcept
 {
-	CoreSysTick();
+	//CoreSysTick();
 	reprap.Tick();
 }
 
