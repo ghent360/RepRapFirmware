@@ -132,12 +132,12 @@ constexpr int8_t DefaultE0Heater = 1;                // Index of the default fir
 constexpr size_t NumThermistorInputs = 4;
 
 constexpr size_t MaxZProbes = 1;
-constexpr size_t MaxGpInPorts = 10;
-constexpr size_t MaxGpOutPorts = 10;
+constexpr size_t MaxGpInPorts = 5;
+constexpr size_t MaxGpOutPorts = 5;
 
 constexpr size_t MinAxes = 3;                        // The minimum and default number of axes
 constexpr size_t MaxAxes = 5;                        // The maximum number of movement axes in the machine, usually just X, Y and Z, <= DRIVES
-constexpr size_t MaxDriversPerAxis = 2;              // The maximum number of stepper drivers assigned to one axis
+constexpr size_t MaxDriversPerAxis = 3;              // The maximum number of stepper drivers assigned to one axis
 
 constexpr size_t MaxExtruders = 2;                   // The maximum number of extruders
 constexpr size_t NumDefaultExtruders = 1;            // The number of drivers that we configure as extruders by default
@@ -151,7 +151,7 @@ constexpr size_t MaxFans = 3;
 
 constexpr unsigned int MaxTriggers = 16;            // Must be <= 32 because we store a bitmap of pending triggers in a uint32_t
 
-constexpr size_t MaxSpindles = 4;                    // Maximum number of configurable spindles
+constexpr size_t MaxSpindles = 2;                    // Maximum number of configurable spindles
 
 //Steppers
 extern Pin ENABLE_PINS[NumDirectDrivers];
@@ -223,7 +223,7 @@ extern bool ATX_POWER_INVERTED;
 // SD cards
 constexpr size_t NumSdCards = _DRIVES; //_DRIVES is defined in CoreLPC (and used by FatFS) allow one internal and one external
 extern Pin SdCardDetectPins[NumSdCards];
-constexpr Pin SdWriteProtectPins[NumSdCards] = { NoPin, NoPin }; //unused on LPC boards
+constexpr Pin SdWriteProtectPins[NumSdCards] = { NoPin }; //unused on LPC boards
 extern Pin SdSpiCSPins[NumSdCards];
 extern uint32_t InternalSDCardFrequency;
 extern uint32_t ExternalSDCardFrequency;
@@ -354,6 +354,7 @@ constexpr PwmFrequency DefaultFanPwmFrequencies[] = { DefaultFanPwmFreq };
 //Boards
 
 bool SetBoard(const char* bn)  noexcept;
+void ClearPinArrays() noexcept;
 
 constexpr size_t MaxBoardNameLength = 20;
 extern char lpcBoardName[MaxBoardNameLength];
@@ -361,6 +362,7 @@ extern size_t lpcSmartDrivers;
 
 struct BoardDefaults
 {
+    const uint32_t numDrivers;
     const Pin enablePins[NumDirectDrivers];
     const Pin stepPins[NumDirectDrivers];
     const Pin dirPins[NumDirectDrivers];

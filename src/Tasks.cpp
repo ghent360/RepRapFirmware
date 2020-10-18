@@ -192,6 +192,7 @@ extern "C" [[noreturn]] void AppMain() noexcept
 
 	// Create the startup task
 	mainTask.Create(MainTask, "MAIN", nullptr, TaskPriority::SpinPriority);
+
 	cpu_irq_restore(flags);
 	vTaskStartScheduler();			// doesn't return
 	for (;;) { }					// keep gcc happy
@@ -294,6 +295,16 @@ void Tasks::Diagnostics(MessageType mtype) noexcept
 		}
 	}
 	p.MessageF(mtype, "\n");
+}
+
+TaskHandle Tasks::GetMainTask() noexcept
+{
+	return mainTask.GetHandle();
+}
+
+void Tasks::TerminateMainTask() noexcept
+{
+	mainTask.TerminateAndUnlink();
 }
 
 const Mutex *Tasks::GetI2CMutex() noexcept

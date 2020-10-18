@@ -15,15 +15,16 @@
 #include "RepRapFirmware.h"
 #include "MessageType.h"
 
-constexpr uint8_t LinuxFormatCode = 0x5F;
+constexpr uint8_t LinuxFormatCode = 0x5F;			// standard format code for RRF SPI protocol
+constexpr uint8_t LiunxFormatCodeStandalone = 0x60;	// used to indicate that RRF is running in stand-alone mode
 constexpr uint8_t InvalidFormatCode = 0xC9;			// must be different from any other format code
 
-constexpr uint16_t LinuxProtocolVersion = 2;
+constexpr uint16_t LinuxProtocolVersion = 3;
 
 #ifndef __LPC17xx__
 constexpr size_t LinuxTransferBufferSize = 8192;	// maximum length of a data transfer. Must be a multiple of 4 and kept in sync with Duet Control Server!
 #else
-constexpr size_t LinuxTransferBufferSize = 4096;    // maximum length of a data transfer. Must be a multiple of 4 and kept in sync with Duet Control Server!
+constexpr size_t LinuxTransferBufferSize = 3072;    // maximum length of a data transfer. Must be a multiple of 4 and kept in sync with Duet Control Server!
 #endif
 
 static_assert(LinuxTransferBufferSize % sizeof(uint32_t) == 0, "LinuxTransferBufferSize must be a whole number of dwords");
@@ -43,7 +44,7 @@ constexpr uint32_t SpiConnectionTimeout = 8000;		// maximum time to wait for the
 #ifndef __LPC17xx__
 constexpr uint16_t SpiCodeBufferSize = 4096;		// number of bytes available for G-code caching
 #else
-constexpr uint16_t SpiCodeBufferSize = 4096/2;        // number of bytes available for G-code caching
+constexpr uint16_t SpiCodeBufferSize = 2048;        // number of bytes available for G-code caching
 #endif
 
 // Shared structures
@@ -164,7 +165,7 @@ struct EvaluationResultHeader
 struct ExecuteMacroHeader
 {
 	uint8_t channel;
-	bool reportMissing;
+	uint8_t dummy;
 	bool fromCode;
 	uint8_t length;
 };
