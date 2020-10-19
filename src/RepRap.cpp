@@ -2753,7 +2753,7 @@ void RepRap::PrepareToLoadIap() noexcept
 		}
 	}
 	debugPrintf("Scan complete\n");
-	#endif
+#endif
 }
 
 void RepRap::StartIap() noexcept

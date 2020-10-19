@@ -69,7 +69,7 @@ SDCard::SDCard(SSPChannel SSPSlot, Pin cs) {
     sdcardBlockSize = 512;
     if (SSPSlot != SSPNONE)
     {
-        spi = new SharedSpiClient(SharedSpiDevice::GetSharedSpiDevice(SSPSlot), SCLK_INIT, SPI_MODE_0, cs, false);
+        spi = new SharedSpiClient(SharedSpiDevice::GetSharedSpiDevice(SSPSlot), SCLK_INIT, SpiMode::mode0, cs, false);
     }
     else
         spi = nullptr;
@@ -81,7 +81,7 @@ void SDCard::SetSSPChannel(SSPChannel channel)
 {
     if (channel != SSPNONE)
     {
-        spi = new SharedSpiClient(SharedSpiDevice::GetSharedSpiDevice(channel), SCLK_INIT, SPI_MODE_0, NoPin, false);
+        spi = new SharedSpiClient(SharedSpiDevice::GetSharedSpiDevice(channel), SCLK_INIT, SpiMode::mode0, NoPin, false);
     }
 }
 

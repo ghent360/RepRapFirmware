@@ -95,9 +95,12 @@
     #define HAS_WIFI_NETWORKING          0
     #define HAS_MASS_STORAGE             1
     #define SUPPORT_TELNET               0
-
+  #ifndef BOARD_NAME
     #define BOARD_NAME          "STM32F4"
+  #endif
+  #ifndef BOARD_SHORT_NAME
     #define BOARD_SHORT_NAME    "STM32"
+  #endif
 
 #endif
 

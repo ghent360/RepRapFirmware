@@ -22,11 +22,13 @@
 #ifndef FF_DEFINED
 #define FF_DEFINED	86604	/* Revision ID */
 
+#ifndef NOEXCEPT
 #ifdef __cplusplus
 # define NOEXCEPT	noexcept
 extern "C" {
 #else
 # define NOEXCEPT
+#endif
 #endif
 
 #include "ffconf.h"		/* FatFs configuration options */

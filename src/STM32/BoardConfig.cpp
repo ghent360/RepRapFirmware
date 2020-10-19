@@ -172,7 +172,6 @@ void BoardConfig::Init() noexcept
     NVIC_SetPriority(DMA2_Stream3_IRQn, NvicPrioritySpi);
     NVIC_SetPriority(DMA1_Stream3_IRQn, NvicPrioritySpi);
     NVIC_SetPriority(DMA1_Stream4_IRQn, NvicPrioritySpi);
-    delay(10000);
     ClearPinArrays();
 #if !HAS_MASS_STORAGE
     sd_mmc_init(SdWriteProtectPins, SdSpiCSPins);

@@ -70,7 +70,7 @@ const char *SafeStrptime(const char *buf, const char *format, struct tm *timeptr
 #else
 
 // Functions needed for builds that use CoreNG. Not needed when using CoreN2G.
-void delay(uint32_t ms) noexcept;
+extern "C" void delay(uint32_t ms);
 static inline void WatchdogReset() noexcept { return watchdogReset(); }
 
 #endif

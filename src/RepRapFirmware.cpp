@@ -255,7 +255,7 @@ void debugPrintf(const char* fmt, ...) noexcept
 }
 
 #if !SAME5x		// CoreN2G defines delay() so this is not needed for the SAME5x build
-void delay(uint32_t ms) noexcept
+extern "C" void delay(uint32_t ms)
 {
 	vTaskDelay(ms);
 }

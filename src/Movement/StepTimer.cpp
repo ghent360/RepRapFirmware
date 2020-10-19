@@ -16,7 +16,7 @@ int lateTimers = 0;
 #elif defined(STM32F4)
 HardwareTimer STimer(STEP_TC);
 TIM_HandleTypeDef *STHandle;
-extern "C" void STEP_TC_HANDLER(HardwareTimer *) noexcept __attribute__ ((hot));
+extern "C" void STEP_TC_HANDLER() noexcept __attribute__ ((hot));
 #elif SAME5x
 # include <CoreIO.h>
 #else
@@ -245,14 +245,8 @@ void StepTimer::DisableTimerInterrupt() noexcept
 }
 
 // Step pulse timer interrupt
-#if defined(STM32F4)
-extern "C" void STEP_TC_HANDLER(HardwareTimer *) noexcept __attribute__ ((hot));
-void STEP_TC_HANDLER(HardwareTimer * notused) noexcept
-#else
 extern "C" void STEP_TC_HANDLER() noexcept __attribute__ ((hot));
-
 void STEP_TC_HANDLER() noexcept
-#endif
 {
 #if SAME5x
 	uint8_t tcsr = StepTc->INTFLAG.reg;								// read the status register, which clears the status bits
