@@ -362,7 +362,7 @@ void DDARing::Interrupt(Platform& p) noexcept
 			}
 
 			// The next step is due immediately. Check whether we have been in this ISR for too long already and need to take a break
-			const uint32_t now = StepTimer::GetTimerTicks();
+			uint32_t now = StepTimer::GetTimerTicks();
 			const uint16_t clocksTaken = now - isrStartTime;
 			if (clocksTaken >= DDA::MaxStepInterruptTime)
 			{
@@ -371,12 +371,12 @@ void DDARing::Interrupt(Platform& p) noexcept
 #if SUPPORT_CAN_EXPANSION
 				uint32_t cumulativeHiccupTime = 0;
 #endif
-				for (;;)
+                for (uint32_t hiccupTime = DDA::HiccupTime; ; hiccupTime += DDA::HiccupTime)
 				{
 #if SUPPORT_CAN_EXPANSION
-					cumulativeHiccupTime += cdda->InsertHiccup(now);
+					cumulativeHiccupTime += cdda->InsertHiccup(now + hiccupTime);
 #else
-					cdda->InsertHiccup(now);
+					cdda->InsertHiccup(now + hiccupTime);
 #endif
 					// Reschedule the next step interrupt. This time it should succeed if the hiccup time was long enough.
 					if (!cdda->ScheduleNextStepInterrupt(timer))
@@ -386,6 +386,9 @@ void DDARing::Interrupt(Platform& p) noexcept
 #endif
 						return;
 					}
+					// The move was still scheduled too soon, even with the hiccup. Update the current time and try again with a 
+					// longer hiccup time.
+					now = StepTimer::GetTimerTicks();
 				}
 			}
 		}
