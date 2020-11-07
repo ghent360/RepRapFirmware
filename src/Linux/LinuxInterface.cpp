@@ -19,6 +19,7 @@
 #include "Tools/Filament.h"
 #include "RepRap.h"
 #include "RepRapFirmware.h"
+#include <Tasks.h>
 #include <Hardware/SoftwareReset.h>
 #include <Hardware/ExceptionHandlers.h>
 #include <Cache.h>
@@ -26,10 +27,10 @@
 #include "BoardConfig.h"
 #endif
 #include <TaskPriorities.h>
-//#define LI_DEBUG
+
+extern char _estack;		// defined by the linker
 
 Mutex LinuxInterface::gcodeReplyMutex;
-Mutex LinuxInterface::codesMutex;
 
 #if __LPC17xx__
 constexpr size_t LinuxTaskStackWords = 600;
@@ -39,11 +40,11 @@ constexpr size_t LinuxTaskStackWords = 1000;			// needs to be enough to support 
 constexpr size_t LinuxTaskStackWords = 600;				// needs to be enough to support rr_model
 #endif
 
-static Task<LinuxTaskStackWords> linuxTask;
+static Task<LinuxTaskStackWords> *linuxTask;
 
 extern "C" [[noreturn]] void LinuxTaskStart(void * pvParameters) noexcept
 {
-	reprap.GetLinuxInterface().Task();
+	reprap.GetLinuxInterface().TaskLoop();
 }
 
 LinuxInterface::LinuxInterface() noexcept : wasConnected(false), numDisconnects(0),
@@ -61,7 +62,6 @@ LinuxInterface::~LinuxInterface()
 void LinuxInterface::Init() noexcept
 {
 	gcodeReplyMutex.Create("LinuxReply");
-	codesMutex.Create("LinuxCodes");
 
 #if defined(DUET_NG)
 	// Make sure that the Wifi module if present is disabled. The ESP Reset pin is already forced low in Platform::Init();
@@ -69,12 +69,14 @@ void LinuxInterface::Init() noexcept
 #endif
 
 	transfer.Init();
-	linuxTask.Create(LinuxTaskStart, "Linux", nullptr, TaskPriority::SpinPriority);
-	transfer.SetLinuxTask(linuxTask.GetHandle());
+	linuxTask = new Task<LinuxTaskStackWords>;
+	linuxTask->Create(LinuxTaskStart, "Linux", nullptr, TaskPriority::SpinPriority);
+	transfer.SetLinuxTask(linuxTask);
 	transfer.StartNextTransfer();
+	iapRamAvailable = &_estack - Tasks::GetHeapTop();
 }
 
-[[noreturn]] void LinuxInterface::Task() noexcept
+[[noreturn]] void LinuxInterface::TaskLoop() noexcept
 {
 	bool writingIap = false;
 	for (;;)
@@ -116,13 +118,13 @@ void LinuxInterface::Init() noexcept
 
 				// Reset the controller
 				case LinuxRequest::Reset:
-					SoftwareReset((uint16_t)SoftwareResetReason::user);
+					SoftwareReset(SoftwareResetReason::user);
 					break;
 
 				// Perform a G/M/T-code
 				case LinuxRequest::Code:
 				{
-					MutexLocker lock(codesMutex);
+					TaskCriticalSectionLocker locker;
 
 					// Read the next code and check if the GB is waiting for a macro file
 					const CodeHeader *code = reinterpret_cast<const CodeHeader*>(transfer.ReadData(packet->length));
@@ -130,57 +132,36 @@ void LinuxInterface::Init() noexcept
 					GCodeBuffer *gb = reprap.GetGCodes().GetGCodeBuffer(channel);
 					if (gb->IsWaitingForMacro() && !gb->IsMacroRequestPending())
 					{
-#ifdef LI_DEBUG
-						debugPrintf("Starting macro\n");
-#endif
 						gb->ResolveMacroRequest(false, false);
 					}
-#ifdef LI_DEBUG
-					debugPrintf("Add len %d txp %d rxp %d txl %d\n", packet->length, txPointer, rxPointer, txLength);
-#endif
 					// Check if the next code overlaps. If yes, restart from the beginning
 					if (txPointer + sizeof(BufferedCodeHeader) + packet->length > SpiCodeBufferSize)
 					{
-						if (txLength != 0)
-						{
-							debugPrintf("about set txLength when it is already set\n");
-							debugPrintf("Add len %d txp %d rxp %d txl %d\n", packet->length, txPointer, rxPointer, txLength);
-							delay(1000);
-						}
 						if (rxPointer == txPointer)
 						{
 							rxPointer = 0;
-							// We should never need to do this as the buffer is in effect empty
-							debugPrintf("Incorrectly setting txLength to %d\n", txPointer);
-							delay(1000);
 						}
 						else
 						{
-							// Check to see if we will overwrite existing buffer contents Should never happen... But does with 3.2-beta2
+							// Check to see if we will overwrite existing buffer contents.
 							if (rxPointer < sizeof(BufferedCodeHeader) + packet->length)
 							{
-#ifdef LI_DEBUG
-								debugPrintf("Buffer is full\n");
-								debugPrintf("Add len %d txp %d rxp %d txl %d\n", packet->length, txPointer, rxPointer, txLength);
-#endif
+								// debugPrintf("Buffer overwrite txPointer %d rxPointer %d packet len %d\n", txPointer, rxPointer, sizeof(BufferedCodeHeader) + packet->length);
+								// reject this packet so it will be resent later
 								packetAcknowledged = false;
 								break;
 							}
 						}
+
 						txLength = txPointer;
 						txPointer = 0;
 						sendBufferUpdate = true;
-#ifdef LI_DEBUG
-						debugPrintf("Adjust len %d txp %d rxp %d txl %d\n", packet->length, txPointer, rxPointer, txLength);
-#endif
 					}
-					// Check to see if we are about to overwrite older packets! Should never happen... But does with 3.2-beta2
+					// Check to see if we are about to overwrite older packets.
 					if (txPointer < rxPointer && txPointer + sizeof(BufferedCodeHeader) + packet->length > rxPointer)
 					{
-#ifdef LI_DEBUG
-						debugPrintf("About to overwrite rxData!!!! ");
-						debugPrintf("len %d txp %d rxp %d txl %d\n", packet->length + sizeof(BufferedCodeHeader), txPointer, rxPointer, txLength);
-#endif
+						// debugPrintf("Buffer overwrite txPointer %d rxPointer %d packet len %d\n", txPointer, rxPointer, sizeof(BufferedCodeHeader) + packet->length);
+						// reject this packet so it will be resent later
 						packetAcknowledged = false;
 						break;
 					}
@@ -194,11 +175,6 @@ void LinuxInterface::Init() noexcept
 					// Store the corresponding code
 					memcpy(codeBuffer + txPointer, code, packet->length);
 					txPointer += packet->length;
-					if (txPointer > SpiCodeBufferSize)
-					{
-						debugPrintf("Invalid txPointer %d\n", txPointer);
-						delay(1000);
-					}
 					break;
 				}
 
@@ -221,7 +197,7 @@ void LinuxInterface::Init() noexcept
 							OutputBuffer::ReleaseAll(outBuf);
 						}
 					}
-					catch (GCodeException& e)
+					catch (const GCodeException& e)
 					{
 						// Get the error message and send it back to DSF
 						OutputBuffer *buf;
@@ -307,11 +283,8 @@ void LinuxInterface::Init() noexcept
 
 							if (reprap.Debug(moduleLinuxInterface))
 							{
-								reprap.GetPlatform().MessageF(DebugMessage, "Empty macro completed on channel %u\n", channel.ToBaseType());
+								reprap.GetPlatform().MessageF(DebugMessage, "Macro completed on channel %u\n", channel.ToBaseType());
 							}
-							InvalidateBufferChannel(channel);
-							gb->Invalidate(false);
-
 						}
 						else
 						{
@@ -515,7 +488,7 @@ void LinuxInterface::Init() noexcept
 								packetAcknowledged = false;
 							}
 						}
-						catch (GCodeException& e)
+						catch (const GCodeException& e)
 						{
 							// Get the error message and send it back to DSF
 							String<StringLength100> errorMessage;
@@ -585,11 +558,9 @@ void LinuxInterface::Init() noexcept
 			// Notify DSF about the available buffer space
 			if (sendBufferUpdate || transfer.LinuxHadReset())
 			{
-				MutexLocker lock(codesMutex);
+				TaskCriticalSectionLocker locker;
+
 				const uint16_t bufferSpace = (txLength == 0) ? max<uint16_t>(rxPointer, SpiCodeBufferSize - txPointer) : rxPointer - txPointer;
-#ifdef LI_DEBUG
-				debugPrintf("update buffer space %d txp %d rxp %d txlen %d\n", bufferSpace, txPointer, rxPointer, txLength);
-#endif
 				sendBufferUpdate = !transfer.WriteCodeBufferUpdate(bufferSpace);
 			}
 
@@ -617,10 +588,15 @@ void LinuxInterface::Init() noexcept
 					}
 #endif
 
-					// Handle macro start requests
+					// Handle macro requests
 					if (gb->IsWaitingForMacro())
 					{
-						if (gb->IsMacroRequestPending())
+						if (gb->IsMacroFileClosed() && transfer.WriteMacroFileClosed(channel))
+						{
+							// Note this is only sent when a macro file has finished successfully
+							gb->MacroFileClosedSent();
+						}
+						else if (gb->IsMacroRequestPending())
 						{
 							const char * const requestedMacroFile = gb->GetRequestedMacroFile();
 							bool fromCode = gb->IsMacroFromCode();
@@ -650,19 +626,29 @@ void LinuxInterface::Init() noexcept
 							gb->Invalidate(false);
 						}
 
-						// Handle file abort requests
+						// Handle file requests
 						if (gb->IsAbortRequested() && transfer.WriteAbortFileRequest(channel, gb->IsAbortAllRequested()))
 						{
-							gb->AcknowledgeAbort();
+							gb->FileAbortSent();
 							gb->Invalidate();
 						}
+						else if (gb->IsMacroFileClosed() && transfer.WriteMacroFileClosed(channel))
+						{
+							// Note this is only sent when a macro file has finished successfully
+							gb->MacroFileClosedSent();
+						}
 
-						// Handle blocking messages
+						// Handle blocking messages and their results
 						if (gb->MachineState().waitingForAcknowledgement && !gb->MachineState().waitingForAcknowledgementSent &&
 							transfer.WriteWaitForAcknowledgement(channel))
 						{
 							gb->MachineState().waitingForAcknowledgementSent = true;
 							gb->Invalidate();
+						}
+						else if (gb->IsMessageAcknowledged() && transfer.WriteMessageAcknowledged(channel))
+						{
+							// Note this is only sent when a message was acknowledged in a regular way (i.e. by M292)
+							gb->MessageAcknowledgementSent();
 						}
 
 						// Send pending firmware codes
@@ -721,7 +707,7 @@ void LinuxInterface::Init() noexcept
 			// Close all open G-code files
 			for (size_t i = 0; i < NumGCodeChannels; i++)
 			{
-				GCodeBuffer *gb = reprap.GetGCodes().GetGCodeBuffer((GCodeChannel)i);
+				GCodeBuffer *gb = reprap.GetGCodes().GetGCodeBuffer(GCodeChannel(i));
 				if (gb == nullptr) continue;
 				if (gb->IsWaitingForMacro())
 				{
@@ -755,7 +741,7 @@ void LinuxInterface::Diagnostics(MessageType mtype) noexcept
 {
 	reprap.GetPlatform().Message(mtype, "=== SBC interface ===\n");
 	transfer.Diagnostics(mtype);
-	reprap.GetPlatform().MessageF(mtype, "Number of disconnects: %" PRIu32 "\n", numDisconnects);
+	reprap.GetPlatform().MessageF(mtype, "Number of disconnects: %" PRIu32 ", IAP RAM available 0x%05" PRIx32 "\n", numDisconnects, iapRamAvailable);
 	reprap.GetPlatform().MessageF(mtype, "Buffer RX/TX: %d/%d-%d\n", (int)rxPointer, (int)txPointer, (int)txLength);
 }
 
@@ -766,7 +752,7 @@ bool LinuxInterface::IsConnected() const noexcept
 
 bool LinuxInterface::FillBuffer(GCodeBuffer &gb) noexcept
 {
-	if (gb.IsInvalidated() ||
+	if (gb.IsInvalidated() || gb.IsMacroFileClosed() || gb.IsMessageAcknowledged() ||
 		gb.IsAbortRequested() || (reportPause && gb.GetChannel() == GCodeChannel::File) ||
 		(gb.MachineState().waitingForAcknowledgement && !gb.MachineState().waitingForAcknowledgementSent))
 	{
@@ -774,11 +760,9 @@ bool LinuxInterface::FillBuffer(GCodeBuffer &gb) noexcept
 		return false;
 	}
 
-	MutexLocker lock(codesMutex);
+	TaskCriticalSectionLocker locker;
 	if (rxPointer != txPointer || txLength != 0)
 	{
-		bool found = false;
-		bool wrapped = false;
 		bool updateRxPointer = true;
 		uint16_t readPointer = rxPointer;
 		do
@@ -787,55 +771,42 @@ bool LinuxInterface::FillBuffer(GCodeBuffer &gb) noexcept
 			readPointer += sizeof(BufferedCodeHeader);
 			const CodeHeader * const header = reinterpret_cast<const CodeHeader*>(codeBuffer + readPointer);
 			readPointer += bufHeader->length;
-			if (readPointer == txLength)
-			{
-				readPointer = 0;
-				wrapped = true;
-			}
-			if (((readPointer >= SpiCodeBufferSize) && (readPointer != txPointer)) || txPointer > SpiCodeBufferSize)
-			{
-				debugPrintf("Invalid read pointer %d txp %d rxp %d txl %d\n", readPointer, txPointer, rxPointer, txLength);
-				delay(1000);
-			}
+
 			if (bufHeader->isPending)
 			{
 				if (gb.GetChannel().RawValue() == header->channel)
 				{
-#ifdef LI_DEBUG
-					debugPrintf("FillBuffer chan %d len %d pending %d txp %d rxp %d txl %d\n", header->channel, bufHeader->length, bufHeader->isPending, txPointer, rxPointer, txLength);
-#endif
 					gb.PutAndDecode(reinterpret_cast<const char *>(header), bufHeader->length, true);
 					bufHeader->isPending = false;
-					found = true;
+
+					if (updateRxPointer)
+					{
+						sendBufferUpdate = true;
+
+						rxPointer = readPointer;
+						if (rxPointer == txLength)
+						{
+							rxPointer = txLength = 0;
+						}
+						else if (rxPointer == txPointer && txLength == 0)
+						{
+							rxPointer = txPointer = 0;
+						}
+					}
+
+					return true;
 				}
 				else
 				{
 					updateRxPointer = false;
 				}
 			}
-		} while (readPointer != txPointer && !found);
-		if (updateRxPointer)
-		{
-			sendBufferUpdate = true;
-#ifdef LI_DEBUG
-			debugPrintf("FillBuffer update rp %d wrapped %d txp %d rxp %d txl %d\n", readPointer, wrapped, txPointer, rxPointer, txLength);
-#endif
-			rxPointer = readPointer;
-			// buffer may have wrapped when processing a burrer that was not pending
-			if (wrapped)
-			{
-				txLength = 0;
-			}
-			if (rxPointer == txPointer && txLength == 0)
-			{
-				rxPointer = txPointer = 0;
-			}
-#ifdef LI_DEBUG
-			debugPrintf("After txp %d rxp %d txl %d\n", txPointer, rxPointer, txLength);
-#endif
-		}
-		return found;
 
+			if (readPointer == txLength)
+			{
+				readPointer = 0;
+			}
+		} while (readPointer != txPointer);
 	}
 	return false;
 }
@@ -880,7 +851,6 @@ void LinuxInterface::HandleGCodeReply(MessageType mt, const char *reply) noexcep
 	}
 	else
 	{
-		if (reply[0] != 0) debugPrintf("Sending null reply when we have data!!!\n");
 		// Store nullptr to indicate an empty response. This way many OutputBuffer references can be saved
 		gcodeReply->Push(nullptr, mt);
 	}
@@ -899,7 +869,7 @@ void LinuxInterface::HandleGCodeReply(MessageType mt, OutputBuffer *buffer) noex
 
 void LinuxInterface::InvalidateBufferChannel(GCodeChannel channel) noexcept
 {
-	MutexLocker lock(codesMutex);
+	TaskCriticalSectionLocker locker;
 	if (rxPointer != txPointer || txLength != 0)
 	{
 		bool updateRxPointer = true;
@@ -912,9 +882,6 @@ void LinuxInterface::InvalidateBufferChannel(GCodeChannel channel) noexcept
 			if (bufHeader->isPending)
 			{
 				const CodeHeader *header = reinterpret_cast<const CodeHeader*>(codeBuffer + readPointer);
-#ifdef LI_DEBUG
-				debugPrintf("Inavlidate chan %d len %d txp %d rxp %d rp %d\n", header->channel, bufHeader->length, txPointer, rxPointer, readPointer);
-#endif
 				if (header->channel == channel.RawValue())
 				{
 					bufHeader->isPending = false;
@@ -924,42 +891,24 @@ void LinuxInterface::InvalidateBufferChannel(GCodeChannel channel) noexcept
 					updateRxPointer = false;
 				}
 			}
-#ifdef LI_DEBUG
-			else
-				debugPrintf("skip len %d txp %d rxp %d rp %d\n", bufHeader->length, txPointer, rxPointer, readPointer);
-#endif
 			readPointer += bufHeader->length;
 
 			if (readPointer == txLength)
 			{
 				readPointer = 0;
 			}
-			if (((readPointer >= SpiCodeBufferSize) && (readPointer != txPointer)) || txPointer > SpiCodeBufferSize)
-			{
-				debugPrintf("IBC Invalid read pointer %d txp %d rxp %d txl %d\n", readPointer, txPointer, rxPointer, txLength);
-				delay(1000);
-			}
 
 			if (updateRxPointer)
 			{
-#ifdef LI_DEBUG
-				debugPrintf("invalidate buffer chan %d len %d txp %d rxp %d txl %d\n", channel.RawValue(), bufHeader->length, txPointer, rxPointer, txLength);
-#endif
 				sendBufferUpdate = true;
 				rxPointer = readPointer;
 				if (rxPointer == 0)
 				{
 					txLength = 0;
-#ifdef LI_DEBUG
-					debugPrintf("after txp %d rxp %d txl %d\n", txPointer, rxPointer, txLength);
-#endif
 				}
 				else if (rxPointer == txPointer && txLength == 0)
 				{
 					rxPointer = txPointer = 0;
-#ifdef LI_DEBUG
-					debugPrintf("after txp %d rxp %d txl %d\n", txPointer, rxPointer, txLength);
-#endif
 					break;
 				}
 			}
