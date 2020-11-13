@@ -27,19 +27,28 @@ void BinaryParser::Init() noexcept
 	seenParameterValue = nullptr;
 }
 
-void BinaryParser::Put(const char *data, size_t len) noexcept
+// Add an entire binary G-Code, overwriting any existing content
+// CAUTION! This may be called with the task scheduler suspended, so don't do anything that might block or take more than a few microseconds to execute
+void BinaryParser::Put(const uint32_t *data, size_t len) noexcept
 {
-	memcpy(gb.buffer, data, len);
-	bufferLength = len;
-	gb.bufferState = GCodeBufferState::ready;
+	memcpyu32(reinterpret_cast<uint32_t *>(gb.buffer), data, len);
+	bufferLength = len * sizeof(uint32_t);
+	gb.bufferState = GCodeBufferState::parsingGCode;
 	gb.machineState->g53Active = (header->flags & CodeFlags::EnforceAbsolutePosition) != 0;
 	gb.machineState->lineNumber = header->lineNumber;
+}
 
-	if (reprap.Debug(moduleGcodes))
+void BinaryParser::DecodeCommand() noexcept
+{
+	if (gb.bufferState == GCodeBufferState::parsingGCode)
 	{
-		String<MaxCodeBufferSize> buf;
-		AppendFullCommand(buf.GetRef());
-		reprap.GetPlatform().MessageF(DebugMessage, "%s: %s\n", gb.GetIdentity(), buf.c_str());
+		if (reprap.Debug(moduleGcodes))
+		{
+			String<MaxCodeBufferSize> buf;
+			AppendFullCommand(buf.GetRef());
+			reprap.GetPlatform().MessageF(DebugMessage, "%s: %s\n", gb.GetIdentity(), buf.c_str());
+		}
+		gb.bufferState = GCodeBufferState::executing;
 	}
 }
 

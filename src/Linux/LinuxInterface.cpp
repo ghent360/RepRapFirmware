@@ -124,17 +124,23 @@ void LinuxInterface::Init() noexcept
 				// Perform a G/M/T-code
 				case LinuxRequest::Code:
 				{
-					TaskCriticalSectionLocker locker;
-
-					// Read the next code and check if the GB is waiting for a macro file
+					// Read the next code
 					const CodeHeader *code = reinterpret_cast<const CodeHeader*>(transfer.ReadData(packet->length));
 					const GCodeChannel channel(code->channel);
 					GCodeBuffer *gb = reprap.GetGCodes().GetGCodeBuffer(channel);
+					if (gb->IsInvalidated())
+					{
+						// Don't deal with codes that will be thrown away
+						break;
+					}
+
+					// Check if a GB is waiting for a macro file to be started
 					if (gb->IsWaitingForMacro() && !gb->IsMacroRequestPending())
 					{
 						gb->ResolveMacroRequest(false, false);
 					}
 					// Check if the next code overlaps. If yes, restart from the beginning
+					TaskCriticalSectionLocker locker;
 					if (txPointer + sizeof(BufferedCodeHeader) + packet->length > SpiCodeBufferSize)
 					{
 						if (rxPointer == txPointer)
@@ -172,8 +178,10 @@ void LinuxInterface::Init() noexcept
 					bufHeader->length = packet->length;
 					txPointer += sizeof(BufferedCodeHeader);
 
-					// Store the corresponding code
-					memcpy(codeBuffer + txPointer, code, packet->length);
+					// Store the corresponding code. Binary codes are always aligned on a 4-byte boundary
+					uint32_t *dst = reinterpret_cast<uint32_t *>(codeBuffer + txPointer);
+					const uint32_t *src = reinterpret_cast<const uint32_t *>(code);
+					memcpyu32(dst, src, packet->length / sizeof(uint32_t));
 					txPointer += packet->length;
 					break;
 				}
@@ -280,10 +288,11 @@ void LinuxInterface::Init() noexcept
 						if (gb->IsWaitingForMacro())
 						{
 							gb->ResolveMacroRequest(error, true);
+							gb->Invalidate();
 
 							if (reprap.Debug(moduleLinuxInterface))
 							{
-								reprap.GetPlatform().MessageF(DebugMessage, "Macro completed on channel %u\n", channel.ToBaseType());
+								reprap.GetPlatform().MessageF(DebugMessage, "Waiting macro completed on channel %u\n", channel.ToBaseType());
 							}
 						}
 						else
@@ -291,7 +300,8 @@ void LinuxInterface::Init() noexcept
 							MutexLocker locker(gb->mutex, 10);
 							if (locker)
 							{
-								gb->SetFileFinished(error);
+								gb->SetFileFinished();
+								gb->Invalidate();
 
 								if (reprap.Debug(moduleLinuxInterface))
 								{
@@ -415,14 +425,20 @@ void LinuxInterface::Init() noexcept
 #else
 				// Write another chunk of the IAP binary to the designated Flash area
 				case LinuxRequest::WriteIap:
+				{
 					if (iapWritePointer == IAP_IMAGE_START)			// if start of IAP write
 					{
 						reprap.PrepareToLoadIap();
 						writingIap = true;
 					}
-					memcpy(reinterpret_cast<char *>(iapWritePointer), transfer.ReadData(packet->length), packet->length);
+
+					// Copy another IAP chunk. It's always bound on a 4-byte boundary
+					uint32_t *dst = reinterpret_cast<uint32_t *>(iapWritePointer);
+					const uint32_t *src = reinterpret_cast<const uint32_t *>(transfer.ReadData(packet->length));
+					memcpyu32(dst, src, packet->length / sizeof(uint32_t));
 					iapWritePointer += packet->length;
 					break;
+				}
 
 				// Launch the IAP binary
 				case LinuxRequest::StartIap:
@@ -588,73 +604,67 @@ void LinuxInterface::Init() noexcept
 					}
 #endif
 
-					// Handle macro requests
-					if (gb->IsWaitingForMacro())
+					// Invalidate buffered codes if required
+					if (gb->IsInvalidated())
 					{
-						if (gb->IsMacroFileClosed() && transfer.WriteMacroFileClosed(channel))
-						{
-							// Note this is only sent when a macro file has finished successfully
-							gb->MacroFileClosedSent();
-						}
-						else if (gb->IsMacroRequestPending())
-						{
-							const char * const requestedMacroFile = gb->GetRequestedMacroFile();
-							bool fromCode = gb->IsMacroFromCode();
-							if (transfer.WriteMacroRequest(channel, requestedMacroFile, fromCode))
-							{
-								if (reprap.Debug(moduleLinuxInterface))
-								{
-									reprap.GetPlatform().MessageF(DebugMessage, "Requesting macro file '%s' (fromCode: %s)\n", requestedMacroFile, fromCode ? "true" : "false");
-								}
-								gb->MacroRequestSent();
-
-								InvalidateBufferChannel(channel);
-								gb->Invalidate(false);
-							}
-						}
-						continue;
+						InvalidateBufferChannel(gb->GetChannel());
+						gb->Invalidate(false);
 					}
 
-					// Deal with other requests
-					MutexLocker gbLock(gb->mutex, 10);
-					if (gbLock)
+					// Deal with macro files being closed
+					if (gb->IsMacroFileClosed() && transfer.WriteMacroFileClosed(channel))
 					{
-						// Invalidate buffered codes if required
-						if (gb->IsInvalidated())
-						{
-							InvalidateBufferChannel(gb->GetChannel());
-							gb->Invalidate(false);
-						}
+						// Note this is only sent when a macro file has finished successfully
+						gb->MacroFileClosedSent();
+					}
 
-						// Handle file requests
-						if (gb->IsAbortRequested() && transfer.WriteAbortFileRequest(channel, gb->IsAbortAllRequested()))
+					// Handle macro requests
+					if (gb->IsWaitingForMacro() && gb->IsMacroRequestPending())
+					{
+						const char * const requestedMacroFile = gb->GetRequestedMacroFile();
+						bool fromCode = gb->IsMacroStartedByCode();
+						if (transfer.WriteMacroRequest(channel, requestedMacroFile, fromCode))
 						{
-							gb->FileAbortSent();
+							if (reprap.Debug(moduleLinuxInterface))
+							{
+								reprap.GetPlatform().MessageF(DebugMessage, "Requesting macro file '%s' (fromCode: %s)\n", requestedMacroFile, fromCode ? "true" : "false");
+							}
+							gb->MacroRequestSent();
 							gb->Invalidate();
 						}
-						else if (gb->IsMacroFileClosed() && transfer.WriteMacroFileClosed(channel))
-						{
-							// Note this is only sent when a macro file has finished successfully
-							gb->MacroFileClosedSent();
-						}
+					}
 
-						// Handle blocking messages and their results
-						if (gb->MachineState().waitingForAcknowledgement && !gb->MachineState().waitingForAcknowledgementSent &&
-							transfer.WriteWaitForAcknowledgement(channel))
+					// Deal with other requests unless we are still waiting in a semaphore
+					if (!gb->IsWaitingForMacro())
+					{
+						MutexLocker gbLock(gb->mutex, 10);
+						if (gbLock)
 						{
-							gb->MachineState().waitingForAcknowledgementSent = true;
-							gb->Invalidate();
-						}
-						else if (gb->IsMessageAcknowledged() && transfer.WriteMessageAcknowledged(channel))
-						{
-							// Note this is only sent when a message was acknowledged in a regular way (i.e. by M292)
-							gb->MessageAcknowledgementSent();
-						}
+							// Handle file abort requests
+							if (gb->IsAbortRequested() && transfer.WriteAbortFileRequest(channel, gb->IsAbortAllRequested()))
+							{
+								gb->FileAbortSent();
+								gb->Invalidate();
+							}
 
-						// Send pending firmware codes
-						if (gb->IsSendRequested() && transfer.WriteDoCode(channel, gb->DataStart(), gb->DataLength()))
-						{
-							gb->SetFinished(true);
+							// Handle blocking messages and their results
+							if (gb->MachineState().waitingForAcknowledgement && gb->IsMessagePromptPending() &&
+								transfer.WriteWaitForAcknowledgement(channel))
+							{
+								gb->MessagePromptSent();
+								gb->Invalidate();
+							}
+							else if (gb->IsMessageAcknowledged() && transfer.WriteMessageAcknowledged(channel))
+							{
+								// Note this is only sent when a message was acknowledged in a regular way (i.e. by M292)
+								gb->MessageAcknowledgementSent();
+							}
+
+							// Send pending firmware codes
+							if (gb->IsSendRequested() && transfer.WriteDoCode(channel, gb->DataStart(), gb->DataLength()))
+							{
+								gb->SetFinished(true);
+							}
 						}
 					}
 				}
@@ -711,7 +721,7 @@ void LinuxInterface::Init() noexcept
 				if (gb == nullptr) continue;
 				if (gb->IsWaitingForMacro())
 				{
-					gb->ResolveMacroRequest(true, true);
+					gb->ResolveMacroRequest(true, false);
 				}
 
 				MutexLocker locker(gb->mutex);
@@ -754,59 +764,70 @@ bool LinuxInterface::FillBuffer(GCodeBuffer &gb) noexcept
 {
 	if (gb.IsInvalidated() || gb.IsMacroFileClosed() || gb.IsMessageAcknowledged() ||
 		gb.IsAbortRequested() || (reportPause && gb.GetChannel() == GCodeChannel::File) ||
-		(gb.MachineState().waitingForAcknowledgement && !gb.MachineState().waitingForAcknowledgementSent))
+		(gb.MachineState().waitingForAcknowledgement && gb.IsMessagePromptPending()))
 	{
 		// Don't process codes that are supposed to be suspended...
 		return false;
 	}
 
-	TaskCriticalSectionLocker locker;
-	if (rxPointer != txPointer || txLength != 0)
+	bool gotCommand = false;
 	{
-		bool updateRxPointer = true;
-		uint16_t readPointer = rxPointer;
-		do
+		//TODO can we take the lock inside the loop body instead, if we re-read readPointer and writePointer after taking it?
+		TaskCriticalSectionLocker locker;
+		if (rxPointer != txPointer || txLength != 0)
 		{
-			BufferedCodeHeader * const bufHeader = reinterpret_cast<BufferedCodeHeader*>(codeBuffer + readPointer);
-			readPointer += sizeof(BufferedCodeHeader);
-			const CodeHeader * const header = reinterpret_cast<const CodeHeader*>(codeBuffer + readPointer);
-			readPointer += bufHeader->length;
-
-			if (bufHeader->isPending)
+			bool updateRxPointer = true;
+			uint16_t readPointer = rxPointer;
+			do
 			{
-				if (gb.GetChannel().RawValue() == header->channel)
-				{
-					gb.PutAndDecode(reinterpret_cast<const char *>(header), bufHeader->length, true);
-					bufHeader->isPending = false;
+				BufferedCodeHeader * const bufHeader = reinterpret_cast<BufferedCodeHeader*>(codeBuffer + readPointer);
+				readPointer += sizeof(BufferedCodeHeader);
+				const CodeHeader * const header = reinterpret_cast<const CodeHeader*>(codeBuffer + readPointer);
+				readPointer += bufHeader->length;
 
-					if (updateRxPointer)
+				if (bufHeader->isPending)
+				{
+					if (gb.GetChannel().RawValue() == header->channel)
 					{
-						sendBufferUpdate = true;
+						gb.PutBinary(reinterpret_cast<const uint32_t *>(header), bufHeader->length / sizeof(uint32_t));
+						bufHeader->isPending = false;
 
-						rxPointer = readPointer;
-						if (rxPointer == txLength)
+						if (updateRxPointer)
 						{
-							rxPointer = txLength = 0;
+							sendBufferUpdate = true;
+
+							rxPointer = readPointer;
+							if (rxPointer == txLength)
+							{
+								rxPointer = txLength = 0;
+							}
+							else if (rxPointer == txPointer && txLength == 0)
+							{
+								rxPointer = txPointer = 0;
+							}
 						}
-						else if (rxPointer == txPointer && txLength == 0)
-						{
-							rxPointer = txPointer = 0;
-						}
+
+						gotCommand = true;
+						break;
 					}
-
-					return true;
+					else
+					{
+						updateRxPointer = false;
+					}
 				}
-				else
+
+				if (readPointer == txLength)
 				{
-					updateRxPointer = false;
+					readPointer = 0;
 				}
-			}
+			} while (readPointer != txPointer);
+		}
+	}
 
-			if (readPointer == txLength)
-			{
-				readPointer = 0;
-			}
-		} while (readPointer != txPointer);
+	if (gotCommand)
+	{
+		gb.DecodeCommand();
+		return true;
 	}
 	return false;
 }
