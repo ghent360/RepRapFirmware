@@ -580,6 +580,7 @@ const NvicPriority NvicPriorityNetworkTick = 8;		// priority for network tick in
 const NvicPriority NvicPriorityEthernet = 8;		// priority for Ethernet interface
 # endif
 
+const NvicPriority NvicPriorityDMA = 6;				// end-of-DMA interrupt used by TMC drivers and HSMCI
 const NvicPriority NvicPrioritySpi = 8;				// SPI is used for network transfers on Duet WiFi/Duet vEthernet
 const NvicPriority NvicPriorityTwi = 9;				// TWI is used to read endstop and other inputs on the DueXn
 
