@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "SDCard.h"
+#include "SDCardSPI.h"
 #include "SpiMode.h"
 #include "SharedSpiDevice.h"
 #include "SharedSpiClient.h"
@@ -55,12 +55,9 @@ constexpr uint32_t SCLK_INIT =  400000;     /* SCLK frequency under initializati
 #define CMD55    (55)        /* APP_CMD */
 #define CMD58    (58)        /* READ_OCR */
 
-
-
-
 #define SD_COMMAND_TIMEOUT 5000
 
-SDCard::SDCard(SSPChannel SSPSlot, Pin cs) {
+SDCardSPI::SDCardSPI(SSPChannel SSPSlot, Pin cs) {
     
     maxFrequency = SCLK_SD12; //default max frequency to run at
     frequency = SCLK_SD12;
@@ -77,7 +74,7 @@ SDCard::SDCard(SSPChannel SSPSlot, Pin cs) {
 }
 
 //call before ReInit
-void SDCard::SetSSPChannel(SSPChannel channel)
+void SDCardSPI::SetSSPChannel(SSPChannel channel)
 {
     if (channel != SSPNONE)
     {
@@ -85,8 +82,7 @@ void SDCard::SetSSPChannel(SSPChannel channel)
     }
 }
 
-
-void SDCard::ReInit(Pin cs, uint32_t freq)
+void SDCardSPI::ReInit(Pin cs, uint32_t freq)
 {
     maxFrequency = freq; //Maximum frequency set by the user
 
@@ -111,7 +107,7 @@ void SDCard::ReInit(Pin cs, uint32_t freq)
     }
 }
 
-void SDCard::unmount()
+void SDCardSPI::unmount()
 {
     status = STA_NOINIT;
     isHighSpeed = false;
@@ -123,18 +119,17 @@ void SDCard::unmount()
 /*-----------------------------------------------------------------------*/
 
 /* Exchange a byte */
-inline uint8_t SDCard::xchg_spi (uint8_t dat)
+inline uint8_t SDCardSPI::xchg_spi (uint8_t dat)
 {
     uint8_t rx;
     spi->TransceivePacket(&dat, &rx, 1);
     return rx;
 }
 
-
 /* Receive multiple byte */
 /* buff - Pointer to data buffer */
 /* btr - Number of bytes to receive (16, 64 or 512) */
-inline void SDCard::rcvr_spi_multi(uint8_t *buff, uint32_t btr)
+inline void SDCardSPI::rcvr_spi_multi(uint8_t *buff, uint32_t btr)
 {
     spi->TransceivePacket(nullptr, buff, btr);
 }
@@ -142,19 +137,17 @@ inline void SDCard::rcvr_spi_multi(uint8_t *buff, uint32_t btr)
 /* Send multiple byte */
 /* buff - ointer to the data */
 /* Number of bytes to send (multiple of 16) */
-inline void SDCard::xmit_spi_multi (const uint8_t *buff, uint32_t btx)
+inline void SDCardSPI::xmit_spi_multi (const uint8_t *buff, uint32_t btx)
 {
     spi->TransceivePacket(buff, nullptr, btx);
 }
-
-
 
 /*-----------------------------------------------------------------------*/
 /* Wait for card ready                                                   */
 /*-----------------------------------------------------------------------*/
 
 /* wt - Timeout [ms] */
-int SDCard::wait_ready (uint32_t wt) /* 1:Ready, 0:Timeout */
+int SDCardSPI::wait_ready (uint32_t wt) /* 1:Ready, 0:Timeout */
 {
     uint8_t d;
     
@@ -175,7 +168,7 @@ int selected = 0;
 /* Deselect card and release SPI                                         */
 /*-----------------------------------------------------------------------*/
 
-void SDCard::deselect (void)
+void SDCardSPI::deselect (void)
 {
 #ifdef SD_DEBUG
     if (!selected)
@@ -195,7 +188,7 @@ void SDCard::deselect (void)
 /* Select card and wait for ready                                        */
 /*-----------------------------------------------------------------------*/
 
-int SDCard::select (void)    /* 1:OK, 0:Timeout */
+int SDCardSPI::select (void)    /* 1:OK, 0:Timeout */
 {
 #ifdef SD_DEBUG
     if (selected)
@@ -222,7 +215,7 @@ int SDCard::select (void)    /* 1:OK, 0:Timeout */
 /*-----------------------------------------------------------------------*/
 /* buff - Data buffer */
 /* btr - Data block length (byte) */
-int SDCard::rcvr_datablock (uint8_t *buff, uint32_t btr)/* 1:OK, 0:Error */
+int SDCardSPI::rcvr_datablock (uint8_t *buff, uint32_t btr)/* 1:OK, 0:Error */
 {
     uint8_t token;
     
@@ -251,7 +244,7 @@ int SDCard::rcvr_datablock (uint8_t *buff, uint32_t btr)/* 1:OK, 0:Error */
 /* buff - Pointer to 512 byte data to be sent */
 /* Token */
 
-int SDCard::xmit_datablock (const uint8_t *buff, uint8_t token) /* 1:OK, 0:Failed */
+int SDCardSPI::xmit_datablock (const uint8_t *buff, uint8_t token) /* 1:OK, 0:Failed */
 {
     if (!wait_ready(500)) return 0;        /* Leading busy check: Wait for card ready to accept data block */
     
@@ -274,7 +267,7 @@ int SDCard::xmit_datablock (const uint8_t *buff, uint8_t token) /* 1:OK, 0:Faile
 /*-----------------------------------------------------------------------*/
 /* cmd - Command index */
 /* arg - Argument */
-uint8_t SDCard::send_cmd (uint8_t cmd, uint32_t arg)/* Return value: R1 resp (bit7==1:Failed to send) */
+uint8_t SDCardSPI::send_cmd (uint8_t cmd, uint32_t arg)/* Return value: R1 resp (bit7==1:Failed to send) */
 {
     uint8_t n, res;
    
@@ -313,7 +306,7 @@ uint8_t SDCard::send_cmd (uint8_t cmd, uint32_t arg)/* Return value: R1 resp (bi
 /* Initialize disk drive                                                 */
 /*-----------------------------------------------------------------------*/
 
-uint8_t SDCard::disk_initialize ()
+uint8_t SDCardSPI::disk_initialize ()
 {
     uint8_t n, cmd, ty, ocr[4];
 
@@ -385,7 +378,7 @@ uint8_t SDCard::disk_initialize ()
                         frequency = SCLK_SD25; // 25MB/s card interface - clock speed up to 50MHz
                         xchg_spi(0xFF);// send 8 dummy cycles before switching speed
 #ifdef SD_DEBUG
-                        debugPrintf("SDCard supports High Speed Mode\n");
+                        debugPrintf("SDCardSPI supports High Speed Mode\n");
 #endif
                     }
                     
@@ -426,13 +419,13 @@ uint8_t SDCard::disk_initialize ()
 /*-----------------------------------------------------------------------*/
 
 ///* Physical drive number (0) */
-uint8_t SDCard::disk_status ()
+uint8_t SDCardSPI::disk_status ()
 {
     return status;
 }
 
 
-CARD_TYPE SDCard::card_type()
+CARD_TYPE SDCardSPI::card_type()
 {
     return cardtype;
 }
@@ -447,7 +440,7 @@ CARD_TYPE SDCard::card_type()
 /* sector - Start sector number (LBA) */
 /* count - Number of sectors to read (1..128) */
 
-DRESULT SDCard::disk_read (uint8_t *buff, uint32_t sector, uint32_t count)
+DRESULT SDCardSPI::disk_read (uint8_t *buff, uint32_t sector, uint32_t count)
 {
     uint8_t cmd;
     if (!count) return RES_PARERR;        /* Check parameter */
@@ -475,11 +468,11 @@ DRESULT SDCard::disk_read (uint8_t *buff, uint32_t sector, uint32_t count)
 /* Start sector number (LBA) */
 /* Number of sectors to write (1..128) */
 
-DRESULT SDCard::disk_write (const uint8_t *buff, uint32_t sector, uint32_t count)
+DRESULT SDCardSPI::disk_write (const uint8_t *buff, uint32_t sector, uint32_t count)
 {
     if (!count){
 #ifdef SD_DEBUG
-        debugPrintf("[SDCard:disk_write] Err: count is incorrect count=%" PRIu32 "", count);
+        debugPrintf("[SDCardSPI:disk_write] Err: count is incorrect count=%" PRIu32 "", count);
 #endif
         return RES_PARERR;        /* Check parameter */
     }
@@ -494,7 +487,7 @@ DRESULT SDCard::disk_write (const uint8_t *buff, uint32_t sector, uint32_t count
             count = 0;
         } else {
 #ifdef SD_DEBUG
-            debugPrintf("[SDCard:disk_write] SingleSectorWrite Failed. Sector:%" PRIu32 "\n", sector);
+            debugPrintf("[SDCardSPI:disk_write] SingleSectorWrite Failed. Sector:%" PRIu32 "\n", sector);
 #endif
         }
     }
@@ -522,7 +515,7 @@ DRESULT SDCard::disk_write (const uint8_t *buff, uint32_t sector, uint32_t count
 /* Pointer to the control data */
 
 
-DRESULT SDCard::disk_ioctl (uint8_t cmd, void *buff)
+DRESULT SDCardSPI::disk_ioctl (uint8_t cmd, void *buff)
 {
     DRESULT res;
     uint8_t n, csd[16];
@@ -575,7 +568,7 @@ DRESULT SDCard::disk_ioctl (uint8_t cmd, void *buff)
 
         default:
 #ifdef SD_DEBUG
-            debugPrintf("[SDCard:disk_ioctl] Unhandled command: %d", cmd);
+            debugPrintf("[SDCardSPI:disk_ioctl] Unhandled command: %d", cmd);
 #endif
             res = RES_PARERR;
     }
