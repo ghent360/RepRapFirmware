@@ -369,16 +369,15 @@ struct BoardEntry
     const BoardDefaults defaults;
 };
 
-
 #include "Boards/BIQU_SKR.h"
-
-
+#include "Boards/PRNTR_V2.h"
 
 //Known boards with built in stepper configurations and pin table 
 constexpr BoardEntry LPC_Boards[] =
 {
-    {"biquskrpro_1.1",      PinTable_BIQU_SKR_PRO_v1_1,    ARRAY_SIZE(PinTable_BIQU_SKR_PRO_v1_1),    biquskr_pro_1_1_Defaults},
-    {"biqugtr_1.0",      PinTable_BIQU_GTR_v1_0,    ARRAY_SIZE(PinTable_BIQU_GTR_v1_0),    biqu_gtr_1_0_Defaults},
+    {"biquskrpro_1.1",   PinTable_BIQU_SKR_PRO_v1_1, ARRAY_SIZE(PinTable_BIQU_SKR_PRO_v1_1), biquskr_pro_1_1_Defaults},
+    {"biqugtr_1.0",      PinTable_BIQU_GTR_v1_0,     ARRAY_SIZE(PinTable_BIQU_GTR_v1_0),     biqu_gtr_1_0_Defaults},
+    {"PrntrV2",          PinTable_PRNTR_V2,          ARRAY_SIZE(PinTable_PRNTR_V2),          prntr_v2_Defaults},
 };
 
 

@@ -18,13 +18,13 @@ bool ATX_INITIAL_POWER_ON = true;           // Should external power be on/off a
 bool ATX_POWER_STATE = true;                // We may not have an actual pin so use this to track state
 
 //SDCard pins and settings
-Pin SdCardDetectPins[NumSdCards] = { NoPin, NoPin };
-Pin SdSpiCSPins[NumSdCards] =      { PA_4,  NoPin };    // Internal, external. Note:: ("slot" 0 in CORE is configured to be LCP SSP1 to match default RRF behaviour)
+Pin SdCardDetectPins[NumSdCards] = { PD_3, NoPin };
+Pin SdSpiCSPins[NumSdCards] =      { NoPin,  NoPin };    // Internal, external. Note:: ("slot" 0 in CORE is configured to be LCP SSP1 to match default RRF behaviour)
 uint32_t ExternalSDCardFrequency = 4000000;             //default to 4MHz
 #if HAS_LINUX_INTERFACE || HAS_WIFI_NETWORKING
     SSPChannel ExternalSDCardSSPChannel = SSPNONE;          // SSP0 used for network
 #else
-    SSPChannel ExternalSDCardSSPChannel = SSP2;             //default to SSP2
+    SSPChannel ExternalSDCardSSPChannel = SSPNONE; //SSP2;  //default to SSP2
 #endif
 uint32_t InternalSDCardFrequency = 25000000;            //default to 25MHz
 
@@ -38,7 +38,7 @@ Pin EncoderPinSw = NoPin;           //click
 Pin PanelButtonPin = NoPin;         //Extra button on Viki and RRD Panels (reset/back etc)
 SSPChannel LcdSpiChannel = SWSPI0;
 
-Pin DiagPin = PA_7;
+Pin DiagPin = NoPin;// PA_7;
 
 //Stepper settings
 Pin ENABLE_PINS[NumDirectDrivers];
@@ -108,9 +108,9 @@ void BOD_IRQHandler()
 }
 
 //Default to the Generic PinTable
-PinEntry *PinTable = (PinEntry *) PinTable_BIQU_SKR_PRO_v1_1;
-size_t NumNamedLPCPins = ARRAY_SIZE(PinTable_BIQU_SKR_PRO_v1_1);
-char lpcBoardName[MaxBoardNameLength] = "biquskrpro_1.1";
+PinEntry *PinTable = (PinEntry *) PinTable_PRNTR_V2;
+size_t NumNamedLPCPins = ARRAY_SIZE(PinTable_PRNTR_V2);
+char lpcBoardName[MaxBoardNameLength] = "PrntrBoard V2";
 
 bool IsEmptyPinArray(Pin *arr, size_t len) noexcept
 {
