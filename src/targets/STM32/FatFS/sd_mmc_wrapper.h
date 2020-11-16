@@ -3,11 +3,8 @@
 
 #include "Core.h"
 
-
 //#define _DRIVES 2 // Support 2 cards (one on each SSP slot)
 constexpr size_t _DRIVES = 2;
-
-
 typedef uint8_t sd_mmc_err_t; //!< Type of return error code
 
 #define SD_MMC_OK               0    //! No error
@@ -20,7 +17,6 @@ typedef uint8_t sd_mmc_err_t; //!< Type of return error code
 #define SD_MMC_ERR_WP           7    //! Card write protected
 #define SD_MMC_CD_DEBOUNCING    8     //! Waiting for card to settle after CD
 
-
 typedef uint8_t card_type_t; //!< Type of card type
 #define CARD_TYPE_UNKNOWN   (0)      //!< Unknown type card
 #define CARD_TYPE_SD        (1 << 0) //!< SD card
@@ -29,17 +25,13 @@ typedef uint8_t card_type_t; //!< Type of card type
 #define CARD_TYPE_HC        (1 << 3) //!< High capacity card
 #define CARD_TYPE_SD_COMBO  (CARD_TYPE_SD | CARD_TYPE_SDIO)
 
-
 void sd_mmc_init(/*const Pin cdPins[],*/ const Pin wpPins[], const Pin spiCsPins[]);
 sd_mmc_err_t sd_mmc_check(uint8_t slot);
 uint32_t sd_mmc_get_capacity(uint8_t slot);
 card_type_t sd_mmc_get_type(uint8_t slot);
 void sd_mmc_unmount(uint8_t slot);
 uint32_t sd_mmc_get_interface_speed(uint8_t slot);
-
-
 void sd_mmc_reinit_slot(uint8_t slot, Pin csPin, uint32_t spiFrequency);
 void sd_mmc_setSSPChannel(uint8_t slot, SSPChannel channel);
-
 
 #endif

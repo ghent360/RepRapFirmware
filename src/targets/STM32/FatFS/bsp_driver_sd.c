@@ -22,17 +22,13 @@
  */
 
 #include "bsp_driver_sd.h"
+#include "FreeRTOSConfig.h"
 
 static SD_HandleTypeDef hsd;
 static DMA_HandleTypeDef hdma_sdio_rx;
 static DMA_HandleTypeDef hdma_sdio_tx;
 
-void Error_Handler(void) {
-}
-
-static void MX_DMA_Init(void)
-{
-
+static void MX_DMA_Init(void) {
   /* DMA controller clock enable */
   __HAL_RCC_DMA2_CLK_ENABLE();
 
@@ -41,22 +37,9 @@ static void MX_DMA_Init(void)
   HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
   /* DMA2_Stream6_IRQn interrupt configuration */
   HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
-
 }
 
-/**
-  * @brief  Initializes the SD card device.
-  * @retval SD status
-  */
-__weak uint8_t BSP_SD_Init(void)
-{
-  uint8_t sd_state = MSD_OK;
-  /* Check if the SD card is plugged in the slot */
-  if (BSP_SD_IsDetected() != SD_PRESENT)
-  {
-    return MSD_ERROR;
-  }
-  MX_DMA_Init();
+static void MX_SDIO_Init(void) {
   /* HAL SD initialization */
   hsd.Instance = SDIO;
   hsd.Init.ClockEdge = SDIO_CLOCK_EDGE_RISING;
@@ -65,27 +48,34 @@ __weak uint8_t BSP_SD_Init(void)
   hsd.Init.BusWide = SDIO_BUS_WIDE_1B;
   hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
   hsd.Init.ClockDiv = 0;
+}
+
+/**
+  * @brief  Initializes the SD card device.
+  * @retval SD status
+  */
+uint8_t BSP_SD_Init(void) {
+  uint8_t sd_state = MSD_OK;
+  static uint8_t mc_init_complete = 0;
+  /* Check if the SD card is plugged in the slot */
+  if (BSP_SD_IsDetected() != SD_PRESENT) {
+    return MSD_ERROR;
+  }
+  if (!mc_init_complete) {
+    MX_DMA_Init();
+    MX_SDIO_Init();
+    mc_init_complete = 1;
+  }
   sd_state = HAL_SD_Init(&hsd);
   /* Configure SD Bus width (4 bits mode selected) */
-  if (sd_state == MSD_OK)
-  {
+  if (sd_state == MSD_OK) {
     /* Enable wide operation */
-    if (HAL_SD_ConfigWideBusOperation(&hsd, SDIO_BUS_WIDE_4B) != HAL_OK)
-    {
+    if (HAL_SD_ConfigWideBusOperation(&hsd, SDIO_BUS_WIDE_4B) != HAL_OK) {
       sd_state = MSD_ERROR;
     }
   }
 
   return sd_state;
-}
-
-__weak uint8_t BSP_SD_ITConfig(void)
-{
-  return (uint8_t)0;
-}
-
-__weak void BSP_SD_DetectIT(void)
-{
 }
 
 /**
@@ -96,12 +86,11 @@ __weak void BSP_SD_DetectIT(void)
   * @param  Timeout: Timeout for read operation
   * @retval SD status
   */
-__weak uint8_t BSP_SD_ReadBlocks(uint32_t *pData, uint32_t ReadAddr, uint32_t NumOfBlocks, uint32_t Timeout)
-{
+uint8_t BSP_SD_ReadBlocks(
+  uint32_t *pData, uint32_t ReadAddr, uint32_t NumOfBlocks, uint32_t Timeout) {
   uint8_t sd_state = MSD_OK;
 
-  if (HAL_SD_ReadBlocks(&hsd, (uint8_t *)pData, ReadAddr, NumOfBlocks, Timeout) != HAL_OK)
-  {
+  if (HAL_SD_ReadBlocks(&hsd, (uint8_t *)pData, ReadAddr, NumOfBlocks, Timeout) != HAL_OK) {
     sd_state = MSD_ERROR;
   }
 
@@ -116,12 +105,11 @@ __weak uint8_t BSP_SD_ReadBlocks(uint32_t *pData, uint32_t ReadAddr, uint32_t Nu
   * @param  Timeout: Timeout for write operation
   * @retval SD status
   */
-__weak uint8_t BSP_SD_WriteBlocks(uint32_t *pData, uint32_t WriteAddr, uint32_t NumOfBlocks, uint32_t Timeout)
-{
+uint8_t BSP_SD_WriteBlocks(
+  uint32_t *pData, uint32_t WriteAddr, uint32_t NumOfBlocks, uint32_t Timeout) {
   uint8_t sd_state = MSD_OK;
 
-  if (HAL_SD_WriteBlocks(&hsd, (uint8_t *)pData, WriteAddr, NumOfBlocks, Timeout) != HAL_OK)
-  {
+  if (HAL_SD_WriteBlocks(&hsd, (uint8_t *)pData, WriteAddr, NumOfBlocks, Timeout) != HAL_OK) {
     sd_state = MSD_ERROR;
   }
 
@@ -135,13 +123,11 @@ __weak uint8_t BSP_SD_WriteBlocks(uint32_t *pData, uint32_t WriteAddr, uint32_t 
   * @param  NumOfBlocks: Number of SD blocks to read
   * @retval SD status
   */
-__weak uint8_t BSP_SD_ReadBlocks_DMA(uint32_t *pData, uint32_t ReadAddr, uint32_t NumOfBlocks)
-{
+uint8_t BSP_SD_ReadBlocks_DMA(uint32_t *pData, uint32_t ReadAddr, uint32_t NumOfBlocks) {
   uint8_t sd_state = MSD_OK;
 
   /* Read block(s) in DMA transfer mode */
-  if (HAL_SD_ReadBlocks_DMA(&hsd, (uint8_t *)pData, ReadAddr, NumOfBlocks) != HAL_OK)
-  {
+  if (HAL_SD_ReadBlocks_DMA(&hsd, (uint8_t *)pData, ReadAddr, NumOfBlocks) != HAL_OK) {
     sd_state = MSD_ERROR;
   }
 
@@ -155,13 +141,11 @@ __weak uint8_t BSP_SD_ReadBlocks_DMA(uint32_t *pData, uint32_t ReadAddr, uint32_
   * @param  NumOfBlocks: Number of SD blocks to write
   * @retval SD status
   */
-__weak uint8_t BSP_SD_WriteBlocks_DMA(uint32_t *pData, uint32_t WriteAddr, uint32_t NumOfBlocks)
-{
+uint8_t BSP_SD_WriteBlocks_DMA(uint32_t *pData, uint32_t WriteAddr, uint32_t NumOfBlocks) {
   uint8_t sd_state = MSD_OK;
 
   /* Write block(s) in DMA transfer mode */
-  if (HAL_SD_WriteBlocks_DMA(&hsd, (uint8_t *)pData, WriteAddr, NumOfBlocks) != HAL_OK)
-  {
+  if (HAL_SD_WriteBlocks_DMA(&hsd, (uint8_t *)pData, WriteAddr, NumOfBlocks) != HAL_OK) {
     sd_state = MSD_ERROR;
   }
 
@@ -174,12 +158,10 @@ __weak uint8_t BSP_SD_WriteBlocks_DMA(uint32_t *pData, uint32_t WriteAddr, uint3
   * @param  EndAddr: End byte address
   * @retval SD status
   */
-__weak uint8_t BSP_SD_Erase(uint32_t StartAddr, uint32_t EndAddr)
-{
+uint8_t BSP_SD_Erase(uint32_t StartAddr, uint32_t EndAddr) {
   uint8_t sd_state = MSD_OK;
 
-  if (HAL_SD_Erase(&hsd, StartAddr, EndAddr) != HAL_OK)
-  {
+  if (HAL_SD_Erase(&hsd, StartAddr, EndAddr) != HAL_OK) {
     sd_state = MSD_ERROR;
   }
 
@@ -194,9 +176,9 @@ __weak uint8_t BSP_SD_Erase(uint32_t StartAddr, uint32_t EndAddr)
   *            @arg  SD_TRANSFER_OK: No data transfer is acting
   *            @arg  SD_TRANSFER_BUSY: Data transfer is acting
   */
-__weak uint8_t BSP_SD_GetCardState(void)
-{
-  return ((HAL_SD_GetCardState(&hsd) == HAL_SD_CARD_TRANSFER ) ? SD_TRANSFER_OK : SD_TRANSFER_BUSY);
+uint8_t BSP_SD_GetCardState(void) {
+  return ((HAL_SD_GetCardState(&hsd) == HAL_SD_CARD_TRANSFER ) ?
+    SD_TRANSFER_OK : SD_TRANSFER_BUSY);
 }
 
 /**
@@ -204,8 +186,7 @@ __weak uint8_t BSP_SD_GetCardState(void)
   * @param  CardInfo: Pointer to HAL_SD_CardInfoTypedef structure
   * @retval None
   */
-__weak void BSP_SD_GetCardInfo(HAL_SD_CardInfoTypeDef *CardInfo)
-{
+void BSP_SD_GetCardInfo(HAL_SD_CardInfoTypeDef *CardInfo) {
   /* Get SD card Information */
   HAL_SD_GetCardInfo(&hsd, CardInfo);
 }
@@ -215,8 +196,7 @@ __weak void BSP_SD_GetCardInfo(HAL_SD_CardInfoTypeDef *CardInfo)
   * @param hsd: SD handle
   * @retval None
   */
-void HAL_SD_AbortCallback(SD_HandleTypeDef *hsd)
-{
+void HAL_SD_AbortCallback(SD_HandleTypeDef *hsd) {
   BSP_SD_AbortCallback();
 }
 
@@ -225,8 +205,7 @@ void HAL_SD_AbortCallback(SD_HandleTypeDef *hsd)
   * @param hsd: SD handle
   * @retval None
   */
-void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsd)
-{
+void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsd) {
   BSP_SD_WriteCpltCallback();
 }
 
@@ -235,19 +214,8 @@ void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsd)
   * @param hsd: SD handle
   * @retval None
   */
-void HAL_SD_RxCpltCallback(SD_HandleTypeDef *hsd)
-{
+void HAL_SD_RxCpltCallback(SD_HandleTypeDef *hsd) {
   BSP_SD_ReadCpltCallback();
-}
-
-/**
-  * @brief BSP SD Abort callback
-  * @retval None
-  * @note empty (up to the user to fill it in or to remove it if useless)
-  */
-__weak void BSP_SD_AbortCallback(void)
-{
-
 }
 
 /**
@@ -255,12 +223,10 @@ __weak void BSP_SD_AbortCallback(void)
  * @param  None
  * @retval Returns if SD is detected or not
  */
-__weak uint8_t BSP_SD_IsDetected(void)
-{
+uint8_t BSP_SD_IsDetected(void) {
   __IO uint8_t status = SD_PRESENT;
 
-  if (BSP_PlatformIsDetected() == 0x0)
-  {
+  if (BSP_PlatformIsDetected() == 0x0) {
     status = SD_NOT_PRESENT;
   }
 
@@ -271,18 +237,15 @@ uint8_t	BSP_PlatformIsDetected(void) {
     uint8_t status = SD_PRESENT;
     /* Check SD card detect pin */
     //if(HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_3) != GPIO_PIN_RESET)
-    if(HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_7) != GPIO_PIN_RESET)
-    {
+    if(HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_7) != GPIO_PIN_RESET) {
         status = SD_NOT_PRESENT;
     }
     return status;
 }
 
-void HAL_SD_MspInit(SD_HandleTypeDef* hsd)
-{
+void HAL_SD_MspInit(SD_HandleTypeDef* hsd) {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(hsd->Instance==SDIO)
-  {
+  if(hsd->Instance==SDIO) {
     /* Peripheral clock enable */
     __HAL_RCC_SDIO_CLK_ENABLE();
 
@@ -326,9 +289,8 @@ void HAL_SD_MspInit(SD_HandleTypeDef* hsd)
     hdma_sdio_rx.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
     hdma_sdio_rx.Init.MemBurst = DMA_MBURST_INC4;
     hdma_sdio_rx.Init.PeriphBurst = DMA_PBURST_INC4;
-    if (HAL_DMA_Init(&hdma_sdio_rx) != HAL_OK)
-    {
-      Error_Handler();
+    if (HAL_DMA_Init(&hdma_sdio_rx) != HAL_OK) {
+      configASSERT(0);
     }
 
     __HAL_LINKDMA(hsd,hdmarx,hdma_sdio_rx);
@@ -347,14 +309,12 @@ void HAL_SD_MspInit(SD_HandleTypeDef* hsd)
     hdma_sdio_tx.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
     hdma_sdio_tx.Init.MemBurst = DMA_MBURST_INC4;
     hdma_sdio_tx.Init.PeriphBurst = DMA_PBURST_INC4;
-    if (HAL_DMA_Init(&hdma_sdio_tx) != HAL_OK)
-    {
-      Error_Handler();
+    if (HAL_DMA_Init(&hdma_sdio_tx) != HAL_OK) {
+      configASSERT(0);
     }
 
     __HAL_LINKDMA(hsd,hdmatx,hdma_sdio_tx);
   }
-
 }
 
 /**
@@ -363,10 +323,8 @@ void HAL_SD_MspInit(SD_HandleTypeDef* hsd)
 * @param hsd: SD handle pointer
 * @retval None
 */
-void HAL_SD_MspDeInit(SD_HandleTypeDef* hsd)
-{
-  if(hsd->Instance==SDIO)
-  {
+void HAL_SD_MspDeInit(SD_HandleTypeDef* hsd) {
+  if(hsd->Instance==SDIO) {
     /* Peripheral clock disable */
     __HAL_RCC_SDIO_CLK_DISABLE();
 
@@ -387,16 +345,13 @@ void HAL_SD_MspDeInit(SD_HandleTypeDef* hsd)
     HAL_DMA_DeInit(hsd->hdmarx);
     HAL_DMA_DeInit(hsd->hdmatx);
   }
-
 }
 
-void DMA2_Stream3_IRQHandler(void)
-{
+void DMA2_Stream3_IRQHandler(void) {
   HAL_DMA_IRQHandler(&hdma_sdio_rx);
 }
 
-void DMA2_Stream6_IRQHandler(void)
-{
+void DMA2_Stream6_IRQHandler(void) {
   HAL_DMA_IRQHandler(&hdma_sdio_tx);
 }
 
