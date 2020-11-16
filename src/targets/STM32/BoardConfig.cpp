@@ -159,7 +159,6 @@ static void FatalError(const char* fmt, ...)
 
 void BoardConfig::Init() noexcept
 {
-
     constexpr char boardConfigPath[] = "0:/sys/board.txt";
     FIL configFile;
     FATFS fs;
@@ -172,11 +171,11 @@ void BoardConfig::Init() noexcept
     //SPI::getSSPDevice(SSP1)->initPins(PA_5, PA_6, PB_5, PA_4, DMA2_Stream2, DMA_CHANNEL_3, DMA2_Stream2_IRQn, DMA2_Stream3, DMA_CHANNEL_3, DMA2_Stream3_IRQn);
     //FIXME need to sort out int priorities
     //NVIC_SetPriority(DMA_IRQn, NvicPriorityDMA);
-    NVIC_SetPriority(DMA2_Stream2_IRQn, NvicPrioritySpi);
     HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, NvicPriorityDMA, 0);
     HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, NvicPriorityDMA, 1);
-    NVIC_SetPriority(DMA1_Stream3_IRQn, NvicPrioritySpi);
-    NVIC_SetPriority(DMA1_Stream4_IRQn, NvicPrioritySpi);
+    HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, NvicPrioritySpi, 0);
+    HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, NvicPrioritySpi, 1);
+    HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, NvicPrioritySpi, 2);
 #if STARTUP_DELAY
     delay(STARTUP_DELAY);
 #endif

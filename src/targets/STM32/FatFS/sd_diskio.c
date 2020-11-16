@@ -261,8 +261,8 @@ static volatile DSTATUS Stat = STA_NOINIT;
 static osMessageQId SDQueueID = NULL;
 
 #if ( configSUPPORT_STATIC_ALLOCATION == 1 ) && ( configSUPPORT_DYNAMIC_ALLOCATION == 0 )
-uint8_t SD_Queue_buffer[QUEUE_SIZE * sizeof(uint16_t)];
-osStaticMessageQDef_t SD_Queue_cb;
+static uint8_t SD_Queue_buffer[QUEUE_SIZE * sizeof(uint16_t)];
+static osStaticMessageQDef_t SD_Queue_cb;
 #endif
 
 static int SD_CheckStatusWithTimeout(uint32_t timeout) {
@@ -395,6 +395,7 @@ DRESULT SD_read(BYTE *buff, DWORD sector, UINT count) {
   } else {
     /* Slow path, fetch each sector a part and memcpy to destination buffer */
     int i;
+    uint8_t ret = MSD_OK;
 
     for (i = 0; i < count; i++) {
       ret = BSP_SD_ReadBlocks_DMA((uint32_t*)scratch, (uint32_t)sector++, 1);
