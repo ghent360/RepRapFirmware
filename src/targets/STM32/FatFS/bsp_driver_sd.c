@@ -236,8 +236,8 @@ uint8_t BSP_SD_IsDetected(void) {
 uint8_t	BSP_PlatformIsDetected(void) {
     uint8_t status = SD_PRESENT;
     /* Check SD card detect pin */
-    //if(HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_3) != GPIO_PIN_RESET)
-    if(HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_7) != GPIO_PIN_RESET) {
+    if(HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_3) != GPIO_PIN_RESET) {
+    ///if(HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_7) != GPIO_PIN_RESET) {
         status = SD_NOT_PRESENT;
     }
     return status;
