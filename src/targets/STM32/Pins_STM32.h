@@ -5,6 +5,7 @@
 #include "sd_mmc.h"
 #include "RepRapFirmware.h"
 #include "NVMEmulation.h"
+#include "stm32f4xx_hal.h"
 
 #ifndef UNUSED
 #define UNUSED(x) (void)(x)
@@ -113,11 +114,16 @@ constexpr size_t NumDirectDrivers = 11;               // The maximum number of d
 #if defined(SUPPORT_TMC22xx)
     constexpr size_t MaxSmartDrivers = NumDirectDrivers;            // The maximum number of smart drivers
     constexpr size_t NumTmcDriversSenseChannels = 1;
-    #define TMC_SOFT_UART 1
+    #define TMC_SOFT_UART                   0
     #define TMC22xx_HAS_ENABLE_PINS			1
     #define TMC22xx_VARIABLE_NUM_DRIVERS	1
-    #define TMC22xx_USE_SLAVEADDR 0
-    #define TMC22xx_HAS_MUX 0
+    #define TMC22xx_USE_SLAVEADDR           1
+    #define TMC22xx_HAS_MUX                 0
+
+//Uart * const TMC22xxUarts[MaxSmartDrivers] = { UART0, UART1 };
+//constexpr uint32_t TMC22xxUartIds[MaxSmartDrivers] = { ID_UART0, ID_UART1 };
+constexpr IRQn_Type TMC22xxUartIRQns[MaxSmartDrivers] = { USART3_IRQn, USART6_IRQn };
+//constexpr Pin TMC22xxUartPins[MaxSmartDrivers] = { APINS_UART0, APINS_UART1 };
 
 #else
     constexpr size_t MaxSmartDrivers = 0;            // The maximum number of smart drivers

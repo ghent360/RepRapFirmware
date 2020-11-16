@@ -189,7 +189,7 @@ void BoardConfig::Init() noexcept
     {
         debugPrintf("Failed to mount SKR Pro SD, trying GTR settings\n");
         //((HardwareSPI *)(SPI::getSSPDevice(SSP1)))->disable();
-        SPI::getSSPDevice(SSP1)->initPins(PA_5, PA_6, PA_7, PA_4);
+        SPI::getSSPDevice(SSP1)->initPins(PB_13, PC_2, PC_3, PD_3);
         rslt = f_mount (&fs, "0:", 1);
     }
     if (rslt == FR_OK)
@@ -258,7 +258,17 @@ void BoardConfig::Init() noexcept
         //Setup the Software SPI Pins
         SPI::getSSPDevice(SWSPI0)->initPins(SoftwareSPIPins[0], SoftwareSPIPins[1], SoftwareSPIPins[2]);
         //Setup the pins for SPI
-        SPI::getSSPDevice(SSP2)->initPins(PB_13, PB_14, PB_15, PB_12, DMA1_Stream3, DMA_CHANNEL_0, DMA1_Stream3_IRQn, DMA1_Stream4, DMA_CHANNEL_0, DMA1_Stream4_IRQn);
+        SPI::getSSPDevice(SSP2)->initPins(
+            PB_13,
+            PC_2,
+            PC_3,
+            PD_13,
+            DMA1_Stream3,
+            DMA_CHANNEL_0,
+            DMA1_Stream3_IRQn,
+            DMA1_Stream4,
+            DMA_CHANNEL_0,
+            DMA1_Stream4_IRQn);
 
 
         //Internal SDCard SPI Frequency
