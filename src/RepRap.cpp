@@ -486,7 +486,7 @@ void RepRap::Init() noexcept
 #elif __LPC17xx__
 	wdt_init(1); // set wdt to 1 second. reset the processor on a watchdog fault
 #elif STM32F4
-	watchdogEnable(1000);
+	//watchdogEnable(1000);
 #else
 	{
 		// The clock frequency for both watchdogs is about 32768/128 = 256Hz
