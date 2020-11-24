@@ -173,9 +173,10 @@ void BoardConfig::Init() noexcept
     //NVIC_SetPriority(DMA_IRQn, NvicPriorityDMA);
     NVIC_SetPriority(DMA2_Stream3_IRQn, NvicPriorityDMA);
     NVIC_SetPriority(DMA2_Stream6_IRQn, NvicPriorityDMA);
-    //HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, NvicPrioritySpi, 0);
-    //HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, NvicPrioritySpi, 1);
-    //HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, NvicPrioritySpi, 2);
+    NVIC_SetPriority(DMA2_Stream2_IRQn, NvicPrioritySpi);
+    //NVIC_SetPriority(DMA2_Stream3_IRQn, NvicPrioritySpi);
+    NVIC_SetPriority(DMA1_Stream3_IRQn, NvicPrioritySpi);
+    NVIC_SetPriority(DMA1_Stream4_IRQn, NvicPrioritySpi);
 #if STARTUP_DELAY
     delay(STARTUP_DELAY);
 #endif
