@@ -69,7 +69,7 @@ uint8_t BSP_SD_Init(void) {
   sd_state = HAL_SD_Init(&hsd);
   /* Configure SD Bus width (4 bits mode selected) */
   if (sd_state == MSD_OK) {
-#if 1
+#if 0
     /* Enable wide operation */
     if (HAL_SD_ConfigWideBusOperation(&hsd, SDIO_BUS_WIDE_4B) != HAL_OK) {
       sd_state = MSD_ERROR;
@@ -237,7 +237,7 @@ uint8_t BSP_SD_IsDetected(void) {
 
 uint8_t	BSP_PlatformIsDetected(void) {
     uint8_t status = SD_PRESENT;
-#if 0
+#if 1
     /* Check SD card detect pin */
     if(HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_3) != GPIO_PIN_RESET) {
     ///if(HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_7) != GPIO_PIN_RESET) {

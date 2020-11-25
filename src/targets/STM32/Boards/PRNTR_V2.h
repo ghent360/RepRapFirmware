@@ -20,14 +20,14 @@ constexpr PinEntry PinTable_PRNTR_V2[] =
     {PA_5, PinCapability::ainrw, "t5"},
 
     //Endstops
-    {PB_1, PinCapability::rwpwm, "xstop,x-stop"},
-    {PC_14, PinCapability::rwpwm, "ystop,y-stop"},
-    {PE_7, PinCapability::rwpwm, "zstop,z-stop"},
-    {PC_4, PinCapability::rwpwm, "xstart,x-start"},
-    {PC_5, PinCapability::rwpwm, "ystart,y-start"},
-    {PB_0, PinCapability::rwpwm, "zstart,z-start"},
-    {PE_8, PinCapability::rwpwm, "e0stop,e0det"},
-    {PE_9, PinCapability::rwpwm, "e1stop,e1det"},
+    {PB_1, PinCapability::rw, "xstop,x-stop"},
+    {PC_14, PinCapability::rw, "ystop,y-stop"},
+    {PE_7, PinCapability::rw, "zstop,z-stop"},
+    {PC_4, PinCapability::rw, "xstart,x-start"},
+    {PC_5, PinCapability::rw, "ystart,y-start"},
+    {PB_0, PinCapability::rw, "zstart,z-start"},
+    {PE_8, PinCapability::rw, "e0stop,e0det"},
+    {PE_9, PinCapability::rw, "e1stop,e1det"},
 	
     //Heaters and Fans (Big and Small Mosfets}
     {PA_8,  PinCapability::wpwm, "bed,hbed" },
@@ -44,19 +44,19 @@ constexpr PinEntry PinTable_PRNTR_V2[] =
     {PD_15,  PinCapability::rwpwm, "servo0" },
 	
     //EXP1
-    {PB_15, PinCapability::rwpwm, "enc_a,PB15"},
-    {PB_14, PinCapability::rwpwm, "enc_b,PB14"},
-    {PB_12, PinCapability::rwpwm, "enc_btn,PB12"},
+    {PB_15, PinCapability::rw, "enc_a,PB15"},
+    {PB_14, PinCapability::rw, "enc_b,PB14"},
+    {PB_12, PinCapability::rw, "enc_btn,PB12"},
     {PB_11, PinCapability::rwpwm, "beep, PB11"},
-    {PE_10, PinCapability::rwpwm, "lcd_e, PE10"},
-    {PE_11, PinCapability::rwpwm, "lcd_rs, PE11"},
-    {PE_12, PinCapability::rwpwm, "lcd_d7, PE12"},
-    {PE_13, PinCapability::rwpwm, "lcd_d6, PE13"},
-    {PE_14, PinCapability::rwpwm, "lcd_d5, PE14"},
-    {PE_15, PinCapability::rwpwm, "lcd_d4, PE15"},
+    {PE_10, PinCapability::rw, "lcd_e, PE10"},
+    {PE_11, PinCapability::rw, "lcd_rs, PE11"},
+    {PE_12, PinCapability::rw, "lcd_d7, PE12"},
+    {PE_13, PinCapability::rw, "lcd_d6, PE13"},
+    {PE_14, PinCapability::rw, "lcd_d5, PE14"},
+    {PE_15, PinCapability::rw, "lcd_d4, PE15"},
 
-    {PD_3, PinCapability::rwpwm, "sd_detect, PD3"},
-    {PC_15, PinCapability::rwpwm, "alarm, PC15"},
+    {PD_3, PinCapability::rw, "sd_detect, PD3"},
+    {PC_15, PinCapability::rw, "alarm, PC15"},
 
 #if 0    
 	//Wifi
@@ -69,32 +69,32 @@ constexpr PinEntry PinTable_PRNTR_V2[] =
 #endif
 
 	//SPI
-	{PA_6, PinCapability::rwpwm, "miso1,PA6"},
-    {PA_7, PinCapability::rwpwm, "mosi1,PA7"},
-    {PB_3, PinCapability::rwpwm, "sck1,PB3"},
-	{PC_2, PinCapability::rwpwm, "miso2,PC2"},
-    {PC_3, PinCapability::rwpwm, "mosi2,PC3"},
-    {PB_13, PinCapability::rwpwm, "sck2,PB13"},
-	{PB_2, PinCapability::rwpwm, "X-CS,PB2"},
-    {PC_13, PinCapability::rwpwm, "Y-CS,PC13"},
-	{PE_4, PinCapability::rwpwm, "Z-CS,PE4"},
-    {PE_3, PinCapability::rwpwm, "E0-CS,PE3"},
-    {PE_2, PinCapability::rwpwm, "E1-CS,PE2"},
-    {PE_1, PinCapability::rwpwm, "E2-CS,PE1"},
-    {PD_8, PinCapability::rwpwm, "EXP-CS,PD8"},
+	{PA_6, PinCapability::rw, "miso1,PA6"},
+    {PA_7, PinCapability::rw, "mosi1,PA7"},
+    {PB_3, PinCapability::rw, "sck1,PB3"},
+	{PC_2, PinCapability::rw, "miso2,PC2"},
+    {PC_3, PinCapability::rw, "mosi2,PC3"},
+    {PB_13, PinCapability::rw, "sck2,PB13"},
+	{PB_2, PinCapability::rw, "X-CS,PB2"},
+    {PC_13, PinCapability::rw, "Y-CS,PC13"},
+	{PE_4, PinCapability::rw, "Z-CS,PE4"},
+    {PE_3, PinCapability::rw, "E0-CS,PE3"},
+    {PE_2, PinCapability::rw, "E1-CS,PE2"},
+    {PE_1, PinCapability::rw, "E2-CS,PE1"},
+    {PD_8, PinCapability::rw, "EXP-CS,PD8"},
 
 	
 	//I2C
-	{PB_7, PinCapability::rwpwm, "i2c-sda,PB7"},
-	{PB_6, PinCapability::rwpwm, "i2c-scl,PB6"},
+	{PB_7, PinCapability::rw, "i2c-sda,PB7"},
+	{PB_6, PinCapability::rw, "i2c-scl,PB6"},
 	
 	//UART
-	{PA_9, PinCapability::rwpwm, "serial0-tx,PA9"},
-	{PA_10, PinCapability::rwpwm, "serial0-rx,PA10"},
-	{PD_5, PinCapability::rwpwm, "serial1-tx,PD5"},
-	{PD_6, PinCapability::rwpwm, "serial1-rx,PD6"},
-    {PB_10, PinCapability::rwpwm, "st-uart1,PB10"},
-    {PC_6, PinCapability::rwpwm, "st-uart2,PC6"},
+	{PA_9, PinCapability::rw, "serial0-tx,PA9"},
+	{PA_10, PinCapability::rw, "serial0-rx,PA10"},
+	{PD_5, PinCapability::rw, "serial1-tx,PD5"},
+	{PD_6, PinCapability::rw, "serial1-rx,PD6"},
+    {PB_10, PinCapability::rw, "st-uart1,PB10"},
+    {PC_6, PinCapability::rw, "st-uart2,PC6"},
 };
 
 constexpr BoardDefaults prntr_v2_Defaults = {
