@@ -467,7 +467,7 @@ void Platform::Init() noexcept
     SERIAL_MAIN_DEVICE.Start();
 #elif __LPC17xx__ || STM32F4
 #ifdef STM32F4
-	SERIAL_MAIN_DEVICE.Configure(PA10, PA9);
+	SERIAL_MAIN_DEVICE.Configure(PA_10, PA_9);
 #endif	
 	SERIAL_MAIN_DEVICE.begin(baudRates[0]);
 #else
@@ -793,18 +793,14 @@ void Platform::Init() noexcept
 
 	for (size_t thermistor = 0; thermistor < NumThermistorInputs; thermistor++)
 	{
-#ifdef __LPC17xx__
 		if (TEMP_SENSE_PINS[thermistor] != NoPin)
 		{
-#endif
-		// TODO use ports for these?
-		pinMode(TEMP_SENSE_PINS[thermistor], AIN);
-		filteredAdcChannels[thermistor] = PinToAdcChannel(TEMP_SENSE_PINS[thermistor]);	// translate the pin number to the SAM ADC channel number;
-#ifdef __LPC17xx__
-		}
-		else
+			// TODO use ports for these?
+			pinMode(PinTable[TEMP_SENSE_PINS[thermistor]].pin, AIN);
+			filteredAdcChannels[thermistor] = PinToAdcChannel(PinTable[TEMP_SENSE_PINS[thermistor]].pin);	// translate the pin number to the SAM ADC channel number;
+		} else {
 			filteredAdcChannels[thermistor] = NO_ADC;
-#endif
+		}
 	}
 
 #if HAS_VREF_MONITOR
