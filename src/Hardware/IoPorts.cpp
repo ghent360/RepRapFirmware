@@ -554,7 +554,7 @@ uint16_t IoPort::ReadAnalog() const noexcept
 		pinMode(pin, mode);
 	}
 #else
-	if (pin != NoPin) pinMode(pinNametoDigitalPin(pin), mode);
+	if (pin != NoPin) pinMode(pin, mode);
 #endif
 }
 
@@ -571,7 +571,7 @@ uint16_t IoPort::ReadAnalog() const noexcept
 	}
 #else
 	if (pin == NoPin) return 0;
-	return digitalRead(pinNametoDigitalPin(pin));
+	return digitalRead(pin);
 #endif
 }
 
@@ -587,7 +587,7 @@ uint16_t IoPort::ReadAnalog() const noexcept
 		digitalWrite(pin, high);
 	}
 #else
-	if (pin != NoPin) digitalWrite(pinNametoDigitalPin(pin), high);
+	if (pin != NoPin) digitalWrite(pin, high);
 #endif
 }
 
@@ -605,7 +605,7 @@ uint16_t IoPort::ReadAnalog() const noexcept
 		AnalogOut(pin, pwm, freq);
 	}
 #else
-	AnalogOut(pinNametoDigitalPin(pin), pwm, freq);
+	AnalogOut(pin, pwm, freq);
 #endif
 }
 
