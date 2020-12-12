@@ -5,36 +5,37 @@
 
 
 #include "sd_mmc_wrapper.h"
-#include "SDCard.h"
+#include "SDCardSPI.h"
+#include "SDCardSDIO.h"
 
 
 SDCard *_ffs[_DRIVES]; //also used by FatFS
 
 //writeProtect pins and ChipSelect Pins for the SDCards
 void sd_mmc_init(Pin const wpPins[_DRIVES],Pin const spiCsPins[_DRIVES]){
-
-    if(spiCsPins != nullptr)
-    {
-        _ffs[0] = new SDCard(SSP1, spiCsPins[0]);//RRF Slot0 = internal card on SSP1
-        _ffs[1] = new SDCard(SSPNONE, spiCsPins[1]);//RRF Slot1 = External card actual channel defined later
-    }
+    // STM32 we do nothing here, device and pins are defined later
 }
 
 //reinit to support setting cs/freq from config
 void sd_mmc_reinit_slot(uint8_t slot, Pin csPin, uint32_t spiFrequency)
 {
-    if(slot < _DRIVES)
+    if(slot < _DRIVES && _ffs[slot])
     {
-        _ffs[slot]->ReInit(csPin, spiFrequency);
+        _ffs[slot]->set_max_frequency(spiFrequency);
     }
 }
 
-void sd_mmc_setSSPChannel(uint8_t slot, SSPChannel channel)
+void sd_mmc_setSSPChannel(uint8_t slot, SSPChannel channel, Pin cs)
 {
-    if(slot < _DRIVES)
+    if (_ffs[slot] != nullptr)
     {
-        _ffs[slot]->SetSSPChannel(channel);
+        delete _ffs[slot];
+        _ffs[slot] = nullptr;
     }
+    if (channel == SSPSDIO)
+        _ffs[slot] = new SDCardSDIO();
+    else if (channel != SSPNONE)
+        _ffs[slot] = new SDCardSPI(SSP1, cs);            
 }
 
 

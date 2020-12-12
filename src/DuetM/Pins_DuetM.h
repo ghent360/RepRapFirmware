@@ -12,7 +12,7 @@
 #define BOARD_SHORT_NAME		"2Maestro"
 #define FIRMWARE_NAME			"RepRapFirmware for Duet 2 Maestro"
 #define DEFAULT_BOARD_TYPE		 BoardType::DuetM_10
-constexpr size_t NumFirmwareUpdateModules = 1;		// 1 module
+constexpr size_t NumFirmwareUpdateModules = 5;		// 0 = mainboard, 4 = PanelDue, values in between unused
 #define IAP_FIRMWARE_FILE		"DuetMaestroFirmware.bin"
 #define IAP_UPDATE_FILE			"DuetMaestroIAP.bin"
 constexpr uint32_t IAP_IMAGE_START = 0x20010000;
@@ -117,6 +117,7 @@ constexpr uint8_t TMC22xx_UART_PINS = APINS_UART0;
 #define TMC22xx_SINGLE_DRIVER			0
 #define TMC22xx_HAS_MUX					1
 #define TMC22xx_USE_SLAVEADDR			0
+#define TMC22xx_DEFAULT_STEALTHCHOP		1
 
 // Define the baud rate used to send/receive data to/from the drivers.
 // If we assume a worst case clock frequency of 8MHz then the maximum baud rate is 8MHz/16 = 500kbaud.

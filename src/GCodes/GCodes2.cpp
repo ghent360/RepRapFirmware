@@ -1754,15 +1754,9 @@ bool GCodes::HandleMcode(GCodeBuffer& gb, const StringRef& reply) THROWS(GCodeEx
 
 				if (result != GCodeResult::error)
 				{
-					if ((type & HttpMessage) == 0)
-					{
-						platform.Message((MessageType)(type | PushFlag), message.c_str());
-						platform.Message(type, "\n");
-					}
-					else
-					{
-						platform.Message(type, message.c_str());
-					}
+					// Append newline and send the message to the destinations
+					message.cat('\n');
+					platform.Message(type, message.c_str());
 				}
 			}
 			break;
@@ -2062,13 +2056,16 @@ bool GCodes::HandleMcode(GCodeBuffer& gb, const StringRef& reply) THROWS(GCodeEx
 
 		case 203: // Set/print minimum/maximum feedrates
 			{
+				// Units are mm/sec if S1 is given, else mm/min
+				const bool usingMmPerSec = (gb.Seen('S') && gb.GetIValue() == 1);
+				const float settingMultiplier = (usingMmPerSec) ? 1.0 : SecondsToMinutes;
 				bool seen = false;
 
 				// Do the minimum first, because we constrain the maximum rates to be no lower than it
 				if (gb.Seen('I'))
 				{
 					seen = true;
-					platform.SetMinMovementSpeed(gb.GetDistance() * SecondsToMinutes);
+					platform.SetMinMovementSpeed(gb.GetDistance() * settingMultiplier);
 				}
 
 				for (size_t axis = 0; axis < numTotalAxes; ++axis)
@@ -2076,7 +2073,7 @@ bool GCodes::HandleMcode(GCodeBuffer& gb, const StringRef& reply) THROWS(GCodeEx
 					if (gb.Seen(axisLetters[axis]))
 					{
 						seen = true;
-						platform.SetMaxFeedrate(axis, gb.GetDistance() * SecondsToMinutes);
+						platform.SetMaxFeedrate(axis, gb.GetDistance() * settingMultiplier);
 					}
 				}
 
@@ -2088,7 +2085,7 @@ bool GCodes::HandleMcode(GCodeBuffer& gb, const StringRef& reply) THROWS(GCodeEx
 					gb.GetFloatArray(eVals, eCount, true);
 					for (size_t e = 0; e < eCount; e++)
 					{
-						platform.SetMaxFeedrate(ExtruderToLogicalDrive(e), gb.ConvertDistance(eVals[e]) * SecondsToMinutes);
+						platform.SetMaxFeedrate(ExtruderToLogicalDrive(e), gb.ConvertDistance(eVals[e]) * settingMultiplier);
 					}
 				}
 
@@ -2098,19 +2095,20 @@ bool GCodes::HandleMcode(GCodeBuffer& gb, const StringRef& reply) THROWS(GCodeEx
 				}
 				else
 				{
-					reply.copy("Max speeds (mm/sec): ");
+					const float reportingMultiplier = (usingMmPerSec) ? 1.0 : MinutesToSeconds;
+					reply.printf("Max speeds (mm/%s): ", (usingMmPerSec) ? "sec" : "min");
 					for (size_t axis = 0; axis < numTotalAxes; ++axis)
 					{
-						reply.catf("%c: %.1f, ", axisLetters[axis], (double)platform.MaxFeedrate(axis));
+						reply.catf("%c: %.1f, ", axisLetters[axis], (double)(platform.MaxFeedrate(axis) * reportingMultiplier));
 					}
 					reply.cat("E:");
 					char sep = ' ';
 					for (size_t extruder = 0; extruder < numExtruders; extruder++)
 					{
-						reply.catf("%c%.1f", sep, (double)platform.MaxFeedrate(ExtruderToLogicalDrive(extruder)));
+						reply.catf("%c%.1f", sep, (double)(platform.MaxFeedrate(ExtruderToLogicalDrive(extruder)) * reportingMultiplier));
 						sep = ':';
 					}
-					reply.catf(", min. speed %.2f", (double)platform.MinMovementSpeed());
+					reply.catf(", min. speed %.2f", (double)(platform.MinMovementSpeed() * reportingMultiplier));
 				}
 			}
 			break;
@@ -3107,6 +3105,9 @@ bool GCodes::HandleMcode(GCodeBuffer& gb, const StringRef& reply) THROWS(GCodeEx
 			break;
 
 		case 556: // Axis compensation (we support only X, Y, Z)
+		{
+			bool seen = false;
+
 			if (gb.Seen('S'))
 			{
 				const float value = gb.GetFValue();
@@ -3117,16 +3118,26 @@ bool GCodes::HandleMcode(GCodeBuffer& gb, const StringRef& reply) THROWS(GCodeEx
 						if (gb.Seen(axisLetters[axis]))
 						{
 							reprap.GetMove().SetAxisCompensation(axis, gb.GetFValue() / value);
+							seen = true;
 						}
 					}
 				}
 			}
-			else
+
+			if (gb.Seen('P'))
 			{
-				reply.printf("Axis compensations - XY: %.5f, YZ: %.5f, ZX: %.5f",
+				reprap.GetMove().SetXYCompensation(gb.GetIValue() <= 0);
+				seen = true;
+			}
+
+			if (!seen)
+			{
+				reply.printf("Axis compensations - %s: %.5f, YZ: %.5f, ZX: %.5f",
+					reprap.GetMove().IsXYCompensated() ? "XY" : "YX",
 					(double)reprap.GetMove().AxisCompensation(X_AXIS), (double)reprap.GetMove().AxisCompensation(Y_AXIS), (double)reprap.GetMove().AxisCompensation(Z_AXIS));
 			}
 			break;
+		}
 
 		case 557: // Set/report Z probe point coordinates
 			result = DefineGrid(gb, reply);
@@ -4397,6 +4408,31 @@ bool GCodes::HandleMcode(GCodeBuffer& gb, const StringRef& reply) THROWS(GCodeEx
 				}
 			}
 #endif
+#if HAS_AUX_DEVICES
+			if (gb.Seen('A'))
+			{
+				const uint32_t serialChannel = gb.GetLimitedUIValue('A', NumSerialChannels, 1);
+				const uint32_t auxChannel = serialChannel - 1;
+				if (platform.IsAuxEnabled(auxChannel))
+				{
+					if (gb.Seen('P'))
+					{
+						String<StringLength20> eraseString;
+						gb.GetQuotedString(eraseString.GetRef());
+						if (eraseString.Equals("ERASE"))
+						{
+							platform.AppendAuxReply(auxChannel, panelDueCommandEraseAndReset, true);
+						}
+					}
+					else
+					{
+						platform.AppendAuxReply(auxChannel, panelDueCommandReset, true);
+					}
+					break;
+				}
+			}
+#endif
+
 			if (!gb.DoDwellTime(1000))		// wait a second to allow the response to be sent back to the web server, otherwise it may retry
 			{
 				return false;

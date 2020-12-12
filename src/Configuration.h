@@ -76,6 +76,7 @@ constexpr unsigned int AUX_BAUD_RATE = 57600;			// Ditto - for auxiliary UART de
 constexpr unsigned int AUX2_BAUD_RATE = 115200;			// Ditto - for second auxiliary UART device
 constexpr uint32_t SERIAL_MAIN_TIMEOUT = 2000;			// timeout in ms for sending data to the main serial/USB port
 constexpr uint32_t AuxTimeout = 2000;					// timeout in ms for PanelDue replies
+#define PANEL_DUE_FIRMWARE_FILE "PanelDueFirmware.bin"
 
 // Heater values
 constexpr uint32_t HeatSampleIntervalMillis = 250;		// interval between taking temperature samples
@@ -104,7 +105,10 @@ constexpr float DefaultHotEndHeaterCoolingRate = 1.0/140.0;		// E3D V6 has a coo
 constexpr float DefaultHotEndHeaterHeatingRate = 340.0 * DefaultHotEndHeaterCoolingRate;
 constexpr float DefaultHotEndHeaterDeadTime = 5.5;		// E3D v6
 
-constexpr unsigned int FirstExtraHeaterProtection = 100;	// Index of the first extra heater protection item
+// These parameters are about right for a typical PCB bed heater that maxes out at 110C
+constexpr float DefaultBedHeaterCoolingRate = 1.0/700.0;
+constexpr float DefaultBedHeaterHeatingRate = 90.0 * DefaultBedHeaterCoolingRate;
+constexpr float DefaultBedHeaterDeadTime = 10.0;
 
 // Default thermistor parameters
 #if !defined(DUET3) && !defined(DUET3MINI)				// for Duet 3 these are defined in Duet3Common.h in project CANLib
@@ -112,11 +116,6 @@ constexpr float DefaultThermistorR25 = 100000.0;
 constexpr float DefaultThermistorBeta = 4725.0;
 constexpr float DefaultThermistorC = 7.06e-8;
 #endif
-
-// These parameters are about right for a typical PCB bed heater that maxes out at 110C
-constexpr float DefaultBedHeaterGain = 90.0;
-constexpr float DefaultBedHeaterTimeConstant = 700.0;
-constexpr float DefaultBedHeaterDeadTime = 10.0;
 
 // Parameters used to detect heating errors
 constexpr float DefaultMaxHeatingFaultTime = 5.0;		// How many seconds we allow a heating fault to persist
