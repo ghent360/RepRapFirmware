@@ -32,9 +32,9 @@
 
 
 #if defined(ESP8266WIFI)
-    constexpr size_t NumFirmwareUpdateModules = 4;        // 3 modules, plus one for manual upload to WiFi module (module 2 is now unused)
+    constexpr size_t NumFirmwareUpdateModules = 5;        // 3 modules, plus one for manual upload to WiFi module (module 2 is now unused)
 #else
-    constexpr size_t NumFirmwareUpdateModules = 1;
+    constexpr size_t NumFirmwareUpdateModules = 5;
 #endif
 
 // Features definition
@@ -211,6 +211,7 @@ extern SSPChannel TempSensorSSPChannel;
 
 #if HAS_LINUX_INTERFACE
     extern Pin SbcTfrReadyPin;
+    extern Pin SbcCsPin;
 #endif
 
 // Power control
@@ -271,7 +272,7 @@ extern Pin AuxSerialRxTxPins[NumberSerialPins];
     extern Pin EspDataReadyPin;
     extern Pin SamTfrReadyPin;
     extern Pin EspResetPin;
-    constexpr Pin SamCsPin = PB_12; //CS for SSP0
+    extern Pin SamCsPin; //CS for SSP0
     extern Pin APIN_Serial1_TXD;
     extern Pin APIN_Serial1_RXD;
     extern Pin WifiSerialRxTxPins[NumberSerialPins];
@@ -377,12 +378,14 @@ struct BoardEntry
 
 #include "Boards/BIQU_SKR.h"
 #include "Boards/PRNTR_V2.h"
+#include "Boards/FLY.h"
 
 //Known boards with built in stepper configurations and pin table 
 constexpr BoardEntry LPC_Boards[] =
 {
     {"biquskrpro_1.1",   PinTable_BIQU_SKR_PRO_v1_1, ARRAY_SIZE(PinTable_BIQU_SKR_PRO_v1_1), biquskr_pro_1_1_Defaults},
     {"biqugtr_1.0",      PinTable_BIQU_GTR_v1_0,     ARRAY_SIZE(PinTable_BIQU_GTR_v1_0),     biqu_gtr_1_0_Defaults},
+    {"fly_f407zg",       PinTable_FLY_F407ZG,        ARRAY_SIZE(PinTable_FLY_F407ZG),        fly_f407zg_Defaults},
     {"PrntrV2",          PinTable_PRNTR_V2,          ARRAY_SIZE(PinTable_PRNTR_V2),          prntr_v2_Defaults},
 };
 

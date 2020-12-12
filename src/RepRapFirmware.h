@@ -71,7 +71,13 @@ const char *SafeStrptime(const char *buf, const char *format, struct tm *timeptr
 
 // Functions needed for builds that use CoreNG. Not needed when using CoreN2G.
 extern "C" void delay(uint32_t ms);
-static inline void WatchdogReset() noexcept { return watchdogReset(); }
+
+#if !__LPC17xx__ && !STM32F4
+static inline void WatchdogReset() noexcept
+{
+	WDT->WDT_CR = WDT_CR_KEY_PASSWD | WDT_CR_WDRSTT;
+}
+#endif
 
 // Optimised version of memcpy for use when the source and destination are known to be 32-bit aligned and a whole number of 32-bit words is to be copied
 void memcpyu32(uint32_t *dst, const uint32_t *src, size_t numWords) noexcept;
@@ -93,6 +99,8 @@ inline void memcpyf(float *dst, const float *src, size_t numFloats) noexcept
 }
 
 #endif
+
+#define SPEED_CRITICAL	__attribute__((optimize("O2")))
 
 // API level definition.
 // ApiLevel 1 is the first level that supports rr_model.
@@ -169,6 +177,11 @@ struct DriverId
 
 	CanAddress boardAddress;
 
+	DriverId() noexcept : localDriver(0), boardAddress(CanId::NoAddress)  { }
+
+	// Constructor used by ATE configurations
+	DriverId(CanAddress addr, uint8_t drv) noexcept : localDriver(drv), boardAddress(addr) { }
+
 	void SetFromBinary(uint32_t val) noexcept
 	{
 		localDriver = val & 0x000000FF;
@@ -180,12 +193,6 @@ struct DriverId
 	{
 		localDriver = (uint8_t)driver;
 		boardAddress = CanId::MasterAddress;
-	}
-
-	void Clear() noexcept
-	{
-		localDriver = 0;
-		boardAddress = CanId::NoAddress;
 	}
 
 	bool IsLocal() const noexcept { return boardAddress == CanId::MasterAddress; }
@@ -213,6 +220,8 @@ struct DriverId
 
 #else
 
+	DriverId() noexcept : localDriver(0)  { }
+
 	// Set the driver ID from the binary value, returning true if there was a nonzero board number so that the caller knows the address is not valid
 	bool SetFromBinary(uint32_t val) noexcept
 	{
@@ -235,8 +244,6 @@ struct DriverId
 	{
 		return localDriver != other.localDriver;
 	}
-
-	void Clear() noexcept { localDriver = 0; }
 
 	bool IsLocal() const noexcept { return true; }
 	bool IsRemote() const noexcept { return false; }
@@ -564,6 +571,7 @@ const NvicPriority NvicPriorityDriversSerialTMC = 1;// STM uses a software UART,
 const NvicPriority NvicPriorityTimerPWM = 2;		// Run PWM timing as high as we can to avoid jitter
 const NvicPriority NvicPriorityPanelDueUart = 3;	// UART is next we have a 16 byte FIFO so less critical than the Duet
 const NvicPriority NvicPriorityTimerServo = 5;
+const NvicPriority NvicPrioritySDIO = 9;
 #else
 const NvicPriority NvicPriorityPanelDueUart = 1;	// UART is highest to avoid character loss (it has only a 1-character receive buffer)
 const NvicPriority NvicPriorityDriversSerialTMC = 5;// USART or UART used to control and monitor the smart drivers

@@ -64,7 +64,7 @@ public:
 	int32_t GetEndPoint(size_t drive) const noexcept;					 	// Get the current position of a motor
 	float LiveCoordinate(unsigned int axisOrExtruder, const Tool *tool) noexcept; // Gives the last point at the end of the last complete DDA
 	bool WaitingForAllMovesFinished() noexcept;								// Tell the lookahead ring we are waiting for it to empty and return true if it is
-	void DoLookAhead() noexcept __attribute__ ((hot));						// Run the look-ahead procedure
+	void DoLookAhead() noexcept SPEED_CRITICAL;			// Run the look-ahead procedure
 	void SetNewPosition(const float positionNow[MaxAxesPlusExtruders], bool doBedCompensation) noexcept; // Set the current position to be this
 	void SetLiveCoordinates(const float coords[MaxAxesPlusExtruders]) noexcept;	// Force the live coordinates (see above) to be these
 	void ResetExtruderPositions() noexcept;									// Resets the extrusion amounts of the live coordinates
@@ -74,6 +74,8 @@ public:
 	bool FinishedBedProbing(int sParam, const StringRef& reply) noexcept;	// Calibrate or set the bed equation after probing
 	void SetAxisCompensation(unsigned int axis, float tangent) noexcept;	// Set an axis-pair compensation angle
 	float AxisCompensation(unsigned int axis) const noexcept;				// The tangent value
+	bool IsXYCompensated() const;											// Check if XY axis compensation applies to the X or Y axis
+	void SetXYCompensation(bool xyCompensation);							// Define whether XY compensation applies to X (default) or to Y
 	void SetIdentityTransform() noexcept;									// Cancel the bed equation; does not reset axis angle compensation
 	void AxisAndBedTransform(float move[], const Tool *tool, bool useBedCompensation) const noexcept;
 																			// Take a position and apply the bed and the axis-angle compensations
@@ -246,6 +248,7 @@ private:
 	float& tanXY = tangents[0];
 	float& tanYZ = tangents[1];
 	float& tanXZ = tangents[2];
+	bool compensateXY;
 
 	HeightMap heightMap;    							// The grid definition in use and height map for G29 bed probing
 	RandomProbePointSet probePoints;					// G30 bed probe points

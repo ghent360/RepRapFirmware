@@ -416,6 +416,9 @@ Platform::Platform() noexcept :
 	nextDriveToPoll(0),
 #endif
 	lastFanCheckTime(0),
+#if HAS_AUX_DEVICES
+	panelDueUpdater(nullptr),
+#endif
 #if HAS_MASS_STORAGE
 	sysDir(nullptr),
 #endif
@@ -495,7 +498,6 @@ void Platform::Init() noexcept
 	{
 		pinMode(SdCardDetectPins[i], INPUT_PULLUP);
 	}
-
 #if HAS_MASS_STORAGE
 	MassStorage::Init();
 #endif
@@ -984,7 +986,11 @@ void Platform::PanelDueBeep(int freq, int ms) noexcept
 void Platform::SendPanelDueMessage(size_t auxNumber, const char* msg) noexcept
 {
 #if HAS_AUX_DEVICES
-	auxDevices[auxNumber].SendPanelDueMessage(msg);
+	// Don't send anything to PanelDue while we are flashing it
+	if (!reprap.GetGCodes().IsFlashingPanelDue())
+	{
+		auxDevices[auxNumber].SendPanelDueMessage(msg);
+	}
 #endif
 }
 
@@ -1621,17 +1627,13 @@ float Platform::GetCpuTemperature() const noexcept
 
 void Platform::InitialiseInterrupts() noexcept
 {
-#if SAM4E || SAME70 || SAME5x || __LPC17xx__
-	NVIC_SetPriority(WDT_IRQn, NvicPriorityWatchdog);			// set priority for watchdog interrupts
-#elif STM32F4
-	NVIC_SetPriority(WWDG_IRQn, NvicPriorityWatchdog);			// set priority for watchdog interrupts
-#endif
+	// Watchdog interrupt priority if applicable has already been set up in RepRap::Init
 
 #if HAS_HIGH_SPEED_SD
-	NVIC_SetPriority(SdhcIRQn, NvicPriorityHSMCI);				// set priority for SD interface interrupts
+	NVIC_SetPriority(SdhcIRQn, NvicPriorityHSMCI);						// set priority for SD interface interrupts
 #endif
 
-	// Set PanelDue UART interrupt priority is set in AuxDevioce::Init
+	// Set PanelDue UART interrupt priority is set in AuxDevice::Init
 	// WiFi UART interrupt priority is now set in module WiFiInterface
 
 #if SUPPORT_TMC22xx && !SAME5x											// SAME5x uses a DMA interrupt instead of the UART interrupt
@@ -1841,7 +1843,7 @@ void Platform::Diagnostics(MessageType mtype) noexcept
 	}
 
 	// Show the current error codes
-	MessageF(mtype, "Error status: 0x%02" PRIx32 "\n", errorCodeBits);		// we only use the bottom 5 bits at present, so print just 2 bytes
+	MessageF(mtype, "Error status: 0x%02" PRIx32 "\n", errorCodeBits);		// we only use the bottom 5 bits at present, so print just 2 characters
 
 #if HAS_CPU_TEMP_SENSOR
 	// Show the MCU temperatures
@@ -3202,11 +3204,26 @@ void Platform::SetAuxRaw(size_t auxNumber, bool raw) noexcept
 #endif
 }
 
+#if HAS_AUX_DEVICES
+void Platform::InitPanelDueUpdater() noexcept
+{
+	if (panelDueUpdater == nullptr)
+	{
+		panelDueUpdater = new PanelDueUpdater();
+	}
+}
+#endif
+
 void Platform::AppendAuxReply(size_t auxNumber, const char *msg, bool rawMessage) noexcept
 {
 #if HAS_AUX_DEVICES
 	if (auxNumber < ARRAY_SIZE(auxDevices))
 	{
+		// Don't send anything to PanelDue while we are flashing it
+		if (auxNumber == 0 && reprap.GetGCodes().IsFlashingPanelDue())
+		{
+			return;
+		}
 		auxDevices[auxNumber].AppendAuxReply(msg, rawMessage);
 	}
 #endif
@@ -3217,6 +3234,12 @@ void Platform::AppendAuxReply(size_t auxNumber, OutputBuffer *reply, bool rawMes
 #if HAS_AUX_DEVICES
 	if (auxNumber < ARRAY_SIZE(auxDevices))
 	{
+		// Don't send anything to PanelDue while we are flashing it
+		if (auxNumber == 0 && reprap.GetGCodes().IsFlashingPanelDue())
+		{
+			OutputBuffer::ReleaseAll(reply);
+			return;
+		}
 		auxDevices[auxNumber].AppendAuxReply(reply, rawMessage);
 	}
 	else
@@ -3456,6 +3479,30 @@ void Platform::Message(MessageType type, const char *message) noexcept
 		formatString.cat(message);
 		RawMessage((MessageType)(type & ~(ErrorMessageFlag | WarningMessageFlag)), formatString.c_str());
 	}
+}
+
+// Send a debug message to USB using minimal stack
+void Platform::DebugMessage(const char *fmt, va_list vargs) noexcept
+{
+	MutexLocker lock(usbMutex);
+	vuprintf([](char c) -> bool
+				{
+					if (c != 0)
+					{
+						while (SERIAL_MAIN_DEVICE.IsConnected() && !reprap.SpinTimeoutImminent())
+						{
+							if (SERIAL_MAIN_DEVICE.canWrite() != 0)
+							{
+								SERIAL_MAIN_DEVICE.write(c);
+								return true;
+							}
+						}
+					}
+					return false;
+				},
+				fmt,
+				vargs
+			);
 }
 
 // Send a message box, which may require an acknowledgement
@@ -4524,11 +4571,14 @@ GCodeResult Platform::UpdateRemoteStepsPerMmAndMicrostepping(AxesBitmap axesAndE
 	axesAndExtruders.Iterate([this, &data](unsigned int axisOrExtruder, unsigned int count) noexcept
 								{
 									const StepsPerUnitAndMicrostepping driverData(this->driveStepsPerUnit[axisOrExtruder], this->microstepping[axisOrExtruder]);
-									this->IterateRemoteDrivers(axisOrExtruder, [&data, &driverData](DriverId driver) noexcept
-											{
-												data.AddEntry(driver, driverData);
-											});
-								});
+									this->IterateRemoteDrivers(axisOrExtruder,
+																[&data, &driverData](DriverId driver) noexcept
+																{
+																	data.AddEntry(driver, driverData);
+																}
+															  );
+								}
+							);
 	return CanInterface::SetRemoteDriverStepsPerMmAndMicrostepping(data, reply);
 }
 

@@ -1,15 +1,18 @@
 /*
  SDClass for use by RepRapFirmware
  
- Author: sdavi
+ Author: GA
  
 */
 #ifndef SDCARD_H
 #define SDCARD_H
 
-//#include "gpio.h"
+
 #include "Core.h"
 #include "diskio.h" //fatfs
+
+
+#define SD_DEFAULT_BLOCK_SIZE 512
 
 /* MMC card type flags (MMC_GET_TYPE) */
 #define CT_MMC        0x01        /* MMC ver 3 */
@@ -22,19 +25,27 @@ typedef uint8_t CARD_TYPE;
 
 class SDCard {
 public:
-    virtual ~SDCard() = default;
-
-    virtual CARD_TYPE card_type(void) = 0;
-    virtual void unmount() = 0;
-    virtual uint32_t interface_speed() = 0;
-    virtual uint32_t disk_sectors() = 0;
-    virtual uint32_t disk_blocksize() = 0;
+    virtual ~SDCard() noexcept = default;
+    CARD_TYPE card_type(void) noexcept {return cardtype;};
+    uint32_t interface_speed() noexcept  { return frequency; };
+    uint32_t disk_sectors() noexcept { return sdcardSectors; };
+    uint32_t disk_blocksize() noexcept { return sdcardBlockSize; };
     
-    virtual uint8_t disk_initialize() = 0;
-    virtual uint8_t disk_status() = 0;
-    virtual DRESULT disk_read (uint8_t *buff, uint32_t sector, uint32_t count) = 0;
-    virtual DRESULT disk_write (const uint8_t *buff, uint32_t sector, uint32_t count) = 0;
-    virtual DRESULT disk_ioctl (uint8_t cmd, void *buff) = 0;
+    virtual void unmount() noexcept = 0;
+    virtual void set_max_frequency(uint32_t maxFrequency) noexcept = 0;  
+    //DiskIO
+    virtual uint8_t disk_initialize() noexcept = 0;
+    virtual uint8_t disk_status() noexcept = 0;
+    virtual DRESULT disk_read (uint8_t *buff, uint32_t sector, uint32_t count) noexcept = 0;
+    virtual DRESULT disk_write (const uint8_t *buff, uint32_t sector, uint32_t count) noexcept = 0;
+    virtual DRESULT disk_ioctl (uint8_t cmd, void *buff) noexcept = 0;
+
+protected:
+    CARD_TYPE cardtype;
+    uint32_t frequency;    
+    uint32_t sdcardSectors;
+    uint32_t sdcardBlockSize;    
+    bool isHighSpeed;
 };
 
 #endif // SDCARD_H

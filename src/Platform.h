@@ -39,6 +39,7 @@ Licence: GPL
 #include <GPIO/GpInPort.h>
 #include <GPIO/GpOutPort.h>
 #include <Comms/AuxDevice.h>
+#include <Comms/PanelDueUpdater.h>
 #include <General/IPAddress.h>
 
 #if defined(DUET_NG)
@@ -358,7 +359,7 @@ public:
 	const MacAddress& GetDefaultMacAddress() const noexcept { return defaultMacAddress; }
 
 	// Timing
-	void Tick() noexcept __attribute__((hot));						// Process a systick interrupt
+	void Tick() noexcept SPEED_CRITICAL;			// Process a systick interrupt
 
 	// Real-time clock
 	bool IsDateTimeSet() const noexcept { return realTime != 0; }	// Has the RTC been set yet?
@@ -377,6 +378,10 @@ public:
     void EnableAux(size_t auxNumber) noexcept;
     bool IsAuxRaw(size_t auxNumber) const noexcept;
 	void SetAuxRaw(size_t auxNumber, bool raw) noexcept;
+#if HAS_AUX_DEVICES
+	PanelDueUpdater* GetPanelDueUpdater() noexcept { return panelDueUpdater; }
+	void InitPanelDueUpdater() noexcept;
+#endif
 
 	void SetIPAddress(IPAddress ip) noexcept;
 	IPAddress GetIPAddress() const noexcept;
@@ -420,6 +425,7 @@ public:
 	void Message(MessageType type, OutputBuffer *buffer) noexcept;
 	void MessageF(MessageType type, const char *fmt, ...) noexcept __attribute__ ((format (printf, 3, 4)));
 	void MessageF(MessageType type, const char *fmt, va_list vargs) noexcept;
+	void DebugMessage(const char *fmt, va_list vargs) noexcept;
 	bool FlushMessages() noexcept;							// Flush messages to USB and aux, returning true if there is more to send
 	void SendAlert(MessageType mt, const char *message, const char *title, int sParam, float tParam, AxesBitmap controls) noexcept;
 	void StopLogging() noexcept;
@@ -818,6 +824,7 @@ private:
 
 #if HAS_AUX_DEVICES
 	AuxDevice auxDevices[NumSerialChannels - 1];
+	PanelDueUpdater* panelDueUpdater;
 #endif
 
 	// Files
