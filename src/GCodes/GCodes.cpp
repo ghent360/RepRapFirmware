@@ -37,8 +37,8 @@
 #include "Tools/Tool.h"
 #include "Endstops/ZProbe.h"
 
-#if SUPPORT_DOTSTAR_LED
-# include "Fans/DotStarLed.h"
+#if SUPPORT_LED_STRIPS
+# include <Fans/LedStripDriver.h>
 #endif
 
 #if HAS_LINUX_INTERFACE
@@ -56,11 +56,14 @@ void GCodes::CommandEmergencyStop(UARTClass *p) noexcept
 #endif
 
 GCodes::GCodes(Platform& p) noexcept :
-	platform(p), machineType(MachineType::fff), active(false),
-#if HAS_VOLTAGE_MONITOR
-	powerFailScript(nullptr),
+#if HAS_AUX_DEVICES && ALLOW_ARBITRARY_PANELDUE_PORT
+	serialChannelForPanelDueFlashing(1),
 #endif
-	isFlashing(false), isFlashingPanelDue(false), lastFilamentError(FilamentSensorStatus::ok), lastWarningMillis(0), atxPowerControlled(false)
+	platform(p), machineType(MachineType::fff), active(false)
+#if HAS_VOLTAGE_MONITOR
+	, powerFailScript(nullptr)
+#endif
+	, isFlashing(false), isFlashingPanelDue(false), lastFilamentError(FilamentSensorStatus::ok), lastWarningMillis(0), atxPowerControlled(false)
 #if HAS_MASS_STORAGE
 	, sdTimingFile(nullptr)
 #endif
@@ -187,8 +190,8 @@ void GCodes::Init() noexcept
 	reprap.GetScanner().SetGCodeBuffer(usbGCode);
 #endif
 
-#if SUPPORT_DOTSTAR_LED
-	DotStarLed::Init();
+#if SUPPORT_LED_STRIPS
+	LedStripDriver::Init();
 #endif
 
 #if HAS_AUX_DEVICES && !__LPC17xx__ && !STM32F4
@@ -793,6 +796,7 @@ bool GCodes::DoFilePrint(GCodeBuffer& gb, const StringRef& reply) noexcept
 #endif
 		return false;
 	}
+	return false;
 }
 
 // Restore positions etc. when exiting simulation mode
@@ -2601,9 +2605,13 @@ bool GCodes::DoFileMacro(GCodeBuffer& gb, const char* fileName, bool reportMissi
 		{
 			if (reportMissing)
 			{
-				platform.MessageF(WarningMessage, "Macro file %s not found\n", fileName);
+				MessageType mt = (gb.IsBinary() && codeRunning >= 0)
+						? (MessageType)(gb.GetResponseMessageType() | WarningMessageFlag | PushFlag)
+							: WarningMessage;
+				platform.MessageF(mt, "Macro file %s not found\n", fileName);
 				return true;
 			}
+
 			return false;
 		}
 
@@ -3594,24 +3602,20 @@ void GCodes::HandleReply(GCodeBuffer& gb, OutputBuffer *reply) noexcept
 		{
 			platform.Message(type, "Begin file list\n");
 			platform.Message(type, reply);
-			platform.Message(type, "End file list\n");
-			platform.Message(type, response);
-			platform.Message(type, "\n");
+			platform.MessageF(type, "End file list\n%s\n", response);
 			return;
 		}
 
 		if (gb.GetCommandLetter() == 'M' && gb.GetCommandNumber() == 28)
 		{
-			platform.Message(type, response);
-			platform.Message(type, "\n");
+			platform.MessageF(type, "%s\n", response);
 			platform.Message(type, reply);
 			return;
 		}
 
 		if (gb.GetCommandLetter() =='M' && (gb.GetCommandNumber() == 105 || gb.GetCommandNumber() == 998))
 		{
-			platform.Message(type, response);
-			platform.Message(type, " ");
+			platform.MessageF(type, "%s ", response);
 			platform.Message(type, reply);
 			return;
 		}
@@ -3619,9 +3623,7 @@ void GCodes::HandleReply(GCodeBuffer& gb, OutputBuffer *reply) noexcept
 		if (reply->Length() != 0 && !gb.IsDoingFileMacro())
 		{
 			platform.Message(type, reply);
-			platform.Message(type, "\n");
-			platform.Message(type, response);
-			platform.Message(type, "\n");
+			platform.MessageF(type, "\n%s\n", response);
 		}
 		else if (reply->Length() != 0)
 		{
@@ -3630,8 +3632,7 @@ void GCodes::HandleReply(GCodeBuffer& gb, OutputBuffer *reply) noexcept
 		else
 		{
 			OutputBuffer::ReleaseAll(reply);
-			platform.Message(type, response);
-			platform.Message(type, "\n");
+			platform.MessageF(type, "%s\n", response);
 		}
 		return;
 

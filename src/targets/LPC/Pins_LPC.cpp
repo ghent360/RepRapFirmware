@@ -46,7 +46,7 @@ Pin ENABLE_PINS[NumDirectDrivers];
 Pin STEP_PINS[NumDirectDrivers];
 Pin DIRECTION_PINS[NumDirectDrivers];
 #if HAS_STALL_DETECT
-    Pin DIAG_PINS[NumDirectDrivers];
+    Pin DriverDiagPins[NumDirectDrivers];
 #endif
 #if TMC_SOFT_UART
     Pin TMC_UART_PINS[NumDirectDrivers];
@@ -92,7 +92,7 @@ Pin SSP0Pins[4] = {SPI0_SCK, SPI0_MISO, SPI0_MOSI, SPI0_SSEL}; //GPIO pins for S
 
 bool ADCEnablePreFilter = true;
 
-#if SUPPORT_DOTSTAR_LED
+#if SUPPORT_LED_STRIPS
 Pin NeopixelOutPin = NoPin;
 #endif
 
@@ -153,7 +153,7 @@ void ClearPinArrays() noexcept
     InitPinArray(TMC_UART_PINS, NumDirectDrivers);
 #endif
 #if HAS_STALL_DETECT
-    InitPinArray(DIAG_PINS, NumDirectDrivers);
+    InitPinArray(DriverDiagPins, NumDirectDrivers);
 #endif
     InitPinArray(TEMP_SENSE_PINS, NumThermistorInputs);
 }

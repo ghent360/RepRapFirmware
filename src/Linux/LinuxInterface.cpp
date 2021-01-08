@@ -22,11 +22,10 @@
 #include <Tasks.h>
 #include <Hardware/SoftwareReset.h>
 #include <Hardware/ExceptionHandlers.h>
-#include <Cache.h>
+#include <TaskPriorities.h>
 #if __LPC17xx__ || STM32F4
 #include "BoardConfig.h"
 #endif
-#include <TaskPriorities.h>
 
 extern char _estack;		// defined by the linker
 
@@ -50,7 +49,7 @@ extern "C" [[noreturn]] void LinuxTaskStart(void * pvParameters) noexcept
 
 LinuxInterface::LinuxInterface() noexcept : isConnected(false), numDisconnects(0),
 	reportPause(false), reportPauseWritten(false), printStarted(false), printStopped(false),
-	rxPointer(0), txPointer(0), txLength(0), sendBufferUpdate(true),
+	codeBuffer(nullptr), rxPointer(0), txPointer(0), txEnd(0), sendBufferUpdate(true),
 	iapWritePointer(IAP_IMAGE_START), waitingForFileChunk(false)
 #ifdef TRACK_FILE_CODES
 	, fileCodesRead(0), fileCodesHandled(0), fileMacrosRunning(0), fileMacrosClosing(0)
@@ -61,6 +60,7 @@ LinuxInterface::LinuxInterface() noexcept : isConnected(false), numDisconnects(0
 void LinuxInterface::Init() noexcept
 {
 	gcodeReplyMutex.Create("LinuxReply");
+	codeBuffer = (char *)new uint32_t[(SpiCodeBufferSize + 3)/4];
 
 #if defined(DUET_NG)
 	// Make sure that the Wifi module if present is disabled. The ESP Reset pin is already forced low in Platform::Init();
@@ -77,10 +77,22 @@ void LinuxInterface::Init() noexcept
 
 [[noreturn]] void LinuxInterface::TaskLoop() noexcept
 {
-	bool writingIap = false;
+	bool writingIap = false, hadReset = false;
 	for (;;)
 	{
-		if (transfer.IsReady())
+		bool isReady = false;
+		if (hadReset)
+		{
+			isReady = true;
+			hadReset = false;
+		}
+		else if (transfer.IsReady())
+		{
+			isReady = true;
+			hadReset = isConnected && transfer.LinuxHadReset();
+		}
+
+		if (isReady && !hadReset)
 		{
 			// Check if the connection state has changed
 			if (!isConnected && !writingIap)
@@ -90,6 +102,7 @@ void LinuxInterface::Init() noexcept
 			}
 
 			// Process incoming packets
+			bool codeBufferAvailable = true;
 			for (size_t i = 0; i < transfer.PacketsToRead(); i++)
 			{
 				const PacketHeader * const packet = transfer.ReadPacket();
@@ -125,6 +138,12 @@ void LinuxInterface::Init() noexcept
 				case LinuxRequest::Code:
 				{
 					// Read the next code
+					if (packet->length == 0)
+					{
+						reprap.GetPlatform().Message(WarningMessage, "Received empty binary code, discarding\n");
+						break;
+					}
+
 					const CodeHeader *code = reinterpret_cast<const CodeHeader*>(transfer.ReadData(packet->length));
 					const GCodeChannel channel(code->channel);
 					GCodeBuffer * const gb = reprap.GetGCodes().GetGCodeBuffer(channel);
@@ -145,50 +164,44 @@ void LinuxInterface::Init() noexcept
 						}
 #endif
 					}
-					// Check if the next code overlaps. If yes, restart from the beginning
-					TaskCriticalSectionLocker locker;
-					if (txPointer + sizeof(BufferedCodeHeader) + packet->length > SpiCodeBufferSize)
-					{
-						if (rxPointer == txPointer)
-						{
-							rxPointer = 0;
-						}
-						else
-						{
-							// Check to see if we will overwrite existing buffer contents.
-							if (rxPointer < sizeof(BufferedCodeHeader) + packet->length)
-							{
-								// debugPrintf("Buffer overwrite txPointer %d rxPointer %d packet len %d\n", txPointer, rxPointer, sizeof(BufferedCodeHeader) + packet->length);
-								// reject this packet so it will be resent later
-								packetAcknowledged = false;
-								break;
-							}
-						}
 
-						txLength = txPointer;
-						txPointer = 0;
-						sendBufferUpdate = true;
-					}
-					// Check to see if we are about to overwrite older packets.
-					if (txPointer < rxPointer && txPointer + sizeof(BufferedCodeHeader) + packet->length > rxPointer)
+					// Don't process any more codes if we failed to store them last time...
+					if (!codeBufferAvailable)
 					{
-						// debugPrintf("Buffer overwrite txPointer %d rxPointer %d packet len %d\n", txPointer, rxPointer, sizeof(BufferedCodeHeader) + packet->length);
-						// reject this packet so it will be resent later
 						packetAcknowledged = false;
 						break;
 					}
 
+					TaskCriticalSectionLocker locker;
+
+					// Make sure no existing codes are overwritten
+					uint16_t bufferedCodeSize = sizeof(BufferedCodeHeader) + packet->length;
+					if ((txEnd == 0 && bufferedCodeSize > max<uint16_t>(rxPointer, SpiCodeBufferSize - txPointer)) ||
+						(txEnd != 0 && bufferedCodeSize > rxPointer - txPointer))
+					{
+						//debugPrintf("Failed to store code, RX/TX %d/%d-%d\n", rxPointer, txPointer, txEnd);
+						packetAcknowledged = codeBufferAvailable = false;
+						break;
+					}
+
+					// Overlap if necessary
+					if (txPointer + bufferedCodeSize > SpiCodeBufferSize)
+					{
+						txEnd = txPointer;
+						txPointer = 0;
+						sendBufferUpdate = true;
+					}
+
 					// Store the buffer header
-					BufferedCodeHeader *bufHeader = reinterpret_cast<BufferedCodeHeader*>(codeBuffer + txPointer);
+					BufferedCodeHeader *bufHeader = reinterpret_cast<BufferedCodeHeader *>(codeBuffer + txPointer);
 					bufHeader->isPending = true;
 					bufHeader->length = packet->length;
-					txPointer += sizeof(BufferedCodeHeader);
 
 					// Store the corresponding code. Binary codes are always aligned on a 4-byte boundary
-					uint32_t *dst = reinterpret_cast<uint32_t *>(codeBuffer + txPointer);
+					uint32_t *dst = reinterpret_cast<uint32_t *>(codeBuffer + txPointer + sizeof(BufferedCodeHeader));
 					const uint32_t *src = reinterpret_cast<const uint32_t *>(code);
 					memcpyu32(dst, src, packet->length / sizeof(uint32_t));
-					txPointer += packet->length;
+					txPointer += bufferedCodeSize;
 					break;
 				}
 
@@ -483,9 +496,6 @@ void LinuxInterface::Init() noexcept
 						{
 							filament->Load(filamentName.c_str());
 						}
-
-						TaskCriticalSectionLocker locker;
-						reprap.MoveUpdated();
 					}
 					break;
 				}
@@ -655,11 +665,11 @@ void LinuxInterface::Init() noexcept
 			}
 
 			// Notify DSF about the available buffer space
-			if (sendBufferUpdate || transfer.LinuxHadReset())
+			if (!codeBufferAvailable || sendBufferUpdate)
 			{
 				TaskCriticalSectionLocker locker;
 
-				const uint16_t bufferSpace = (txLength == 0) ? max<uint16_t>(rxPointer, SpiCodeBufferSize - txPointer) : rxPointer - txPointer;
+				const uint16_t bufferSpace = (txEnd == 0) ? max<uint16_t>(rxPointer, SpiCodeBufferSize - txPointer) : rxPointer - txPointer;
 				sendBufferUpdate = !transfer.WriteCodeBufferUpdate(bufferSpace);
 			}
 
@@ -798,23 +808,21 @@ void LinuxInterface::Init() noexcept
 			// Wait for the next SPI transaction to complete or for a timeout to occur
 			TaskBase::Take(SpiConnectionTimeout);
 		}
-		else if (isConnected && !writingIap && !transfer.IsConnected())
+		else if (isConnected && !writingIap && (!transfer.IsConnected() || hadReset))
 		{
 			isConnected = false;
 			numDisconnects++;
 			reprap.GetPlatform().Message(NetworkInfoMessage, "Lost connection to Linux\n");
 
-			rxPointer = txPointer = txLength = 0;
+			rxPointer = txPointer = txEnd = 0;
 			sendBufferUpdate = true;
 			iapWritePointer = IAP_IMAGE_START;
 
-#if SUPPORT_CAN_EXPANSION
 			if (!requestedFileName.IsEmpty())
 			{
 				requestedFileDataLength = -1;
 				requestedFileSemaphore.Give();
 			}
-#endif
 
 			// Don't cache any messages if they cannot be sent
 			{
@@ -848,8 +856,16 @@ void LinuxInterface::Init() noexcept
 			// Turn off all the heaters
 			reprap.GetHeat().SwitchOffAll(true);
 
-			// Wait indefinitely for the next transfer
-			TaskBase::Take();
+			if (hadReset)
+			{
+				// Let the main task invalidate resources
+				RTOSIface::Yield();
+			}
+			else
+			{
+				// Wait indefinitely for the next transfer
+				TaskBase::Take();
+			}
 		}
 		else if (!writingIap)
 		{
@@ -864,7 +880,7 @@ void LinuxInterface::Diagnostics(MessageType mtype) noexcept
 	reprap.GetPlatform().Message(mtype, "=== SBC interface ===\n");
 	transfer.Diagnostics(mtype);
 	reprap.GetPlatform().MessageF(mtype, "Number of disconnects: %" PRIu32 ", IAP RAM available 0x%05" PRIx32 "\n", numDisconnects, iapRamAvailable);
-	reprap.GetPlatform().MessageF(mtype, "Buffer RX/TX: %d/%d-%d\n", (int)rxPointer, (int)txPointer, (int)txLength);
+	reprap.GetPlatform().MessageF(mtype, "Buffer RX/TX: %d/%d-%d\n", (int)rxPointer, (int)txPointer, (int)txEnd);
 #ifdef TRACK_FILE_CODES
 	reprap.GetPlatform().MessageF(mtype, "File codes read/handled: %d/%d, file macros open/closing: %d %d\n", (int)fileCodesRead, (int)fileCodesHandled, (int)fileMacrosRunning, (int)fileMacrosClosing);
 #endif
@@ -884,20 +900,23 @@ bool LinuxInterface::FillBuffer(GCodeBuffer &gb) noexcept
 	{
 		//TODO can we take the lock inside the loop body instead, if we re-read readPointer and writePointer after taking it?
 		TaskCriticalSectionLocker locker;
-		if (rxPointer != txPointer || txLength != 0)
+		if (rxPointer != txPointer || txEnd != 0)
 		{
 			bool updateRxPointer = true;
 			uint16_t readPointer = rxPointer;
 			do
 			{
-				BufferedCodeHeader * const bufHeader = reinterpret_cast<BufferedCodeHeader*>(codeBuffer + readPointer);
+				BufferedCodeHeader *bufHeader = reinterpret_cast<BufferedCodeHeader*>(codeBuffer + readPointer);
 				readPointer += sizeof(BufferedCodeHeader);
-				const CodeHeader * const header = reinterpret_cast<const CodeHeader*>(codeBuffer + readPointer);
+				const CodeHeader *codeHeader = reinterpret_cast<const CodeHeader*>(codeBuffer + readPointer);
 				readPointer += bufHeader->length;
+
+				RRF_ASSERT(bufHeader->length > 0);
+				RRF_ASSERT(readPointer <= SpiCodeBufferSize);
 
 				if (bufHeader->isPending)
 				{
-					if (gb.GetChannel().RawValue() == header->channel)
+					if (gb.GetChannel().RawValue() == codeHeader->channel)
 					{
 #ifdef TRACK_FILE_CODES
 						if (gb.GetChannel() == GCodeChannel::File && gb.GetCommandLetter() != 'Q')
@@ -922,36 +941,45 @@ bool LinuxInterface::FillBuffer(GCodeBuffer &gb) noexcept
 #endif
 
 						// Process the next binary G-code
-						gb.PutBinary(reinterpret_cast<const uint32_t *>(header), bufHeader->length / sizeof(uint32_t));
+						gb.PutBinary(reinterpret_cast<const uint32_t *>(codeHeader), bufHeader->length / sizeof(uint32_t));
 						bufHeader->isPending = false;
 
 						// Check if we can reset the ring buffer pointers
 						if (updateRxPointer)
 						{
 							sendBufferUpdate = true;
-
-							rxPointer = readPointer;
-							if (rxPointer == txLength)
+							if (readPointer == txPointer && txEnd == 0)
 							{
-								rxPointer = txLength = 0;
-							}
-							else if (rxPointer == txPointer && txLength == 0)
-							{
+								// Buffer completely read, reset RX/TX pointers
 								rxPointer = txPointer = 0;
+							}
+							else if (readPointer == txEnd)
+							{
+								// Read last code before overlapping, restart from the beginning
+								rxPointer = txEnd = 0;
+							}
+							else
+							{
+								// Code has been read, move on to the next one
+								rxPointer = readPointer;
 							}
 						}
 
 						gotCommand = true;
 						break;
 					}
-					else
-					{
-						updateRxPointer = false;
-					}
+					updateRxPointer = false;
 				}
 
-				if (readPointer == txLength)
+				if (readPointer == txEnd)
 				{
+					if (updateRxPointer)
+					{
+						// Skipped non-pending codes, restart from the beginning
+						rxPointer = txEnd = 0;
+					}
+
+					// About to overlap, continue from the start
 					readPointer = 0;
 				}
 			} while (readPointer != txPointer);
@@ -1054,19 +1082,17 @@ void LinuxInterface::HandleGCodeReply(MessageType mt, OutputBuffer *buffer) noex
 void LinuxInterface::InvalidateBufferChannel(GCodeChannel channel) noexcept
 {
 	TaskCriticalSectionLocker locker;
-	if (rxPointer != txPointer || txLength != 0)
+	if (rxPointer != txPointer || txEnd != 0)
 	{
 		bool updateRxPointer = true;
 		uint16_t readPointer = rxPointer;
 		do
 		{
-			BufferedCodeHeader *bufHeader = reinterpret_cast<BufferedCodeHeader*>(codeBuffer + readPointer);
-			readPointer += sizeof(BufferedCodeHeader);
-
+			BufferedCodeHeader *bufHeader = reinterpret_cast<BufferedCodeHeader *>(codeBuffer + readPointer);
 			if (bufHeader->isPending)
 			{
-				const CodeHeader *header = reinterpret_cast<const CodeHeader*>(codeBuffer + readPointer);
-				if (header->channel == channel.RawValue())
+				const CodeHeader *codeHeader = reinterpret_cast<const CodeHeader*>(codeBuffer + readPointer + sizeof(BufferedCodeHeader));
+				if (codeHeader->channel == channel.RawValue())
 				{
 					bufHeader->isPending = false;
 				}
@@ -1075,32 +1101,35 @@ void LinuxInterface::InvalidateBufferChannel(GCodeChannel channel) noexcept
 					updateRxPointer = false;
 				}
 			}
-			readPointer += bufHeader->length;
-
-			if (readPointer == txLength)
-			{
-				readPointer = 0;
-			}
+			readPointer += sizeof(BufferedCodeHeader) + bufHeader->length;
 
 			if (updateRxPointer)
 			{
 				sendBufferUpdate = true;
-				rxPointer = readPointer;
-				if (rxPointer == 0)
+				if (readPointer == txPointer && txEnd == 0)
 				{
-					txLength = 0;
-				}
-				else if (rxPointer == txPointer && txLength == 0)
-				{
+					// Buffer is empty again, reset the pointers
 					rxPointer = txPointer = 0;
 					break;
 				}
+				else if (readPointer == txEnd)
+				{
+					// Invalidated last code before overlapping, continue from the beginning
+					readPointer = 0;
+					rxPointer = txEnd = 0;
+				}
+				else
+				{
+					// Invalidated next code
+					rxPointer = readPointer;
+				}
+			}
+			else if (readPointer == txEnd)
+			{
+				// About to overlap, continue from the start
+				readPointer = 0;
 			}
 		} while (readPointer != txPointer);
-
-		// TODO It might make sense to reorder out-of-order blocks here to create a larger chunk of free buffer space.
-		// An alternative could be to limit the buffered codes per size per channel in DCS - yet we must avoid segmentation as much as possible
-		// Segmentation could become a problem if a lot of codes from different channels keep coming in and one or more codes cannot be put into GB(s)
 	}
 }
 

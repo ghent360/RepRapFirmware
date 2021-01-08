@@ -46,7 +46,7 @@ static const boardConfigEntry_t boardConfigs[]=
     {"stepper.numSmartDrivers", &lpcSmartDrivers, nullptr, cvUint32Type},
 #endif
 #if HAS_STALL_DETECT
-    {"stepper.TmcDiagPins", DIAG_PINS, &MaxTotalDrivers, cvPinType},
+    {"stepper.TmcDiagPins", DriverDiagPins, &MaxTotalDrivers, cvPinType},
 #endif
 
     //Heater sensors
@@ -102,7 +102,7 @@ static const boardConfigEntry_t boardConfigs[]=
     
     {"adc.prefilter.enable", &ADCEnablePreFilter, nullptr, cvBoolType},
 
-#if SUPPORT_DOTSTAR_LED
+#if SUPPORT_LED_STRIPS
     {"led.neopixelPin", &NeopixelOutPin, nullptr, cvPinType},
 #endif
 };
@@ -181,15 +181,15 @@ static void FatalError(const char* fmt, ...)
 static uint32_t signature;
 
 typedef struct {
-    uint32_t sig;
+    uint32_t sigs[5];
     SSPChannel device;
     Pin pins[4];    
 } SDCardConfig;
 
 static constexpr SDCardConfig SDCardConfigs[] = {
-    {0x768a39d6, SSP1, {PA_5, PA_6, PB_5, PA_4}}, // SKR Pro
-    {0x94a2cc03, SSP1, {PA_5, PA_6, PA_7, PA_4}}, // GTR
-    {0x8a5f5551, SSPSDIO, {NoPin, NoPin, NoPin, NoPin}}, // Fly/SDIO
+    {{0x768a39d6}, SSP1, {PA_5, PA_6, PB_5, PA_4}}, // SKR Pro
+    {{0x94a2cc03}, SSP1, {PA_5, PA_6, PA_7, PA_4}}, // GTR
+    {{0x8a5f5551, 0xd0c680ae}, SSPSDIO, {NoPin, NoPin, NoPin, NoPin}}, // Fly/SDIO
 };
 
 
@@ -197,16 +197,19 @@ FRESULT InitSDCard(uint32_t boardSig, FATFS *fs)
 {
     FRESULT rslt;
     int conf = 0;
-    // First try to find a mayching board
+    // First try to find a matching board
+    debugPrintf("Searching for board signature 0x%x\n", (unsigned) boardSig);
     for(uint32_t i = 0; i < ARRAY_SIZE(SDCardConfigs); i++)
-        if (SDCardConfigs[i].sig == boardSig)
-        {
-            conf = i;
-            break;
-        }
+        for(uint32_t j = 0; j < ARRAY_SIZE(SDCardConfigs[0].sigs); j++)
+            if (SDCardConfigs[i].sigs[j] == boardSig)
+            {
+                debugPrintf("Found matching board entry %d\n", (int)i);
+                conf = i;
+                break;
+            }
     for(uint32_t i = 0; i < ARRAY_SIZE(SDCardConfigs); i++)
     {
-        debugPrintf("InitSDCard try config %d type %d\n", conf, SDCardConfigs[i].device);
+        debugPrintf("InitSDCard try config %d type %d\n", conf, SDCardConfigs[conf].device);
         if (SDCardConfigs[conf].device != SSPSDIO)
         {
             SPI::getSSPDevice(SDCardConfigs[conf].device)->initPins(SDCardConfigs[conf].pins[0], SDCardConfigs[conf].pins[1], SDCardConfigs[conf].pins[2], SDCardConfigs[conf].pins[3]);
@@ -298,6 +301,8 @@ void BoardConfig::Init() noexcept
         
         //Calculate STEP_DRIVER_MASK (used for parallel writes)
         STEP_DRIVER_MASK = 0;
+        // Currently not implemented for STM32
+        #if 0
         for(size_t i=0; i<MaxTotalDrivers; i++)
         {
             //It is assumed all pins will be on Port 2
@@ -315,6 +320,8 @@ void BoardConfig::Init() noexcept
                 }
             }
         }
+        #endif
+        hasStepPinsOnDifferentPorts = true;
         
         //Does board have build in current control via digipots?
         if(digipotFactor > 1)

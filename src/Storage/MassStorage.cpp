@@ -8,6 +8,10 @@
 #include <Libraries/sd_mmc/sd_mmc.h>
 #endif 
 
+#if HAS_LINUX_INTERFACE
+# include <Linux/LinuxInterface.h>
+#endif
+
 // Check that the LFN configuration in FatFS is sufficient
 static_assert(FF_MAX_LFN >= MaxFilenameLength, "FF_MAX_LFN too small");
 
@@ -29,6 +33,11 @@ static_assert(SD_MMC_MEM_CNT == NumSdCards);
 
 // Private data and methods
 
+# if SAME70
+alignas(4) static __nocache uint8_t sectorBuffers[NumSdCards][512];
+alignas(4) static __nocache char writeBufferStorage[NumFileWriteBuffers][FileWriteBufLen];
+# endif
+
 enum class CardDetectState : uint8_t
 {
 	notPresent = 0,
@@ -48,9 +57,20 @@ struct SdCardInfo INHERIT_OBJECT_MODEL
 	bool isMounted;
 	CardDetectState cardState;
 
+	void Clear(unsigned int card) noexcept;
+
 protected:
 	DECLARE_OBJECT_MODEL
 };
+
+void SdCardInfo::Clear(unsigned int card) noexcept
+{
+	memset(&fileSystem, 0, sizeof(fileSystem));
+#if SAME70
+	fileSystem.win = sectorBuffers[card];
+	memset(sectorBuffers[card], 0, sizeof(sectorBuffers[card]));
+#endif
+}
 
 #if SUPPORT_OBJECT_MODEL
 
@@ -100,25 +120,67 @@ DEFINE_GET_OBJECT_MODEL_TABLE(SdCardInfo)
 
 static SdCardInfo info[NumSdCards];
 
-static Mutex fsMutex, dirMutex;
+static Mutex dirMutex;
 
 static FileInfoParser infoParser;
 static DIR findDir;
 static FileWriteBuffer *freeWriteBuffers;
-static FileStore files[MAX_FILES];
+#endif
 
+#if HAS_MASS_STORAGE || HAS_LINUX_INTERFACE
+static Mutex fsMutex;
+static FileStore files[MAX_FILES];
+#endif
+
+// Construct a full path name from a path and a filename. Returns false if error i.e. filename too long
+/*static*/ bool MassStorage::CombineName(const StringRef& outbuf, const char* directory, const char* fileName) noexcept
+{
+	bool hadError = false;
+	if (directory != nullptr && directory[0] != 0 && fileName[0] != '/' && (strlen(fileName) < 2 || !isdigit(fileName[0]) || fileName[1] != ':'))
+	{
+		hadError = outbuf.copy(directory);
+		if (!hadError)
+		{
+			const size_t len = outbuf.strlen();
+			if (len != 0 && outbuf[len - 1] != '/')
+			{
+				hadError = outbuf.cat('/');
+			}
+		}
+	}
+	else
+	{
+		outbuf.Clear();
+	}
+	if (!hadError)
+	{
+		hadError = outbuf.cat(fileName);
+	}
+	if (hadError)
+	{
+		reprap.GetPlatform().MessageF(ErrorMessage, "Filename too long: cap=%u, dir=%.12s%s name=%.12s%s\n",
+										outbuf.Capacity(),
+										directory, (strlen(directory) > 12 ? "..." : ""),
+										fileName, (strlen(fileName) > 12 ? "..." : "")
+									 );
+		outbuf.copy("?????");
+	}
+	return !hadError;
+}
+
+#if HAS_MASS_STORAGE
 // Static helper functions
 FileWriteBuffer *MassStorage::AllocateWriteBuffer() noexcept
 {
 	MutexLocker lock(fsMutex);
-	if (freeWriteBuffers == nullptr)
-	{
-		return nullptr;
-	}
 
 	FileWriteBuffer * const buffer = freeWriteBuffers;
-	freeWriteBuffers = buffer->Next();
-	buffer->SetNext(nullptr);
+	if (buffer != nullptr)
+	{
+		freeWriteBuffers = buffer->Next();
+		buffer->SetNext(nullptr);
+		buffer->DataTaken();				// make sure that the write pointer is clear
+	}
 	return buffer;
 }
 
@@ -138,7 +200,7 @@ static unsigned int InternalUnmount(size_t card, bool doClose) noexcept
 	const unsigned int invalidated = MassStorage::InvalidateFiles(&inf.fileSystem, doClose);
 	const char path[3] = { (char)('0' + card), ':', 0 };
 	f_mount(nullptr, path, 0);
-	memset(&inf.fileSystem, 0, sizeof(inf.fileSystem));
+	inf.Clear(card);
 	sd_mmc_unmount(card);
 	inf.isMounted = false;
 	reprap.VolumesUpdated();
@@ -203,25 +265,35 @@ static const char* TranslateCardError(sd_mmc_err_t err) noexcept
 	}
 }
 
+#endif
+
+#if HAS_MASS_STORAGE || HAS_LINUX_INTERFACE
+
 void MassStorage::Init() noexcept
 {
+	fsMutex.Create("FileSystem");
+
+# if HAS_MASS_STORAGE
 	static const char * const VolMutexNames[] = { "SD0", "SD1" };
 	static_assert(ARRAY_SIZE(VolMutexNames) >= NumSdCards, "Incorrect VolMutexNames array");
 
 	// Create the mutexes
-	fsMutex.Create("FileSystem");
 	dirMutex.Create("DirSearch");
 
 	freeWriteBuffers = nullptr;
 	for (size_t i = 0; i < NumFileWriteBuffers; ++i)
 	{
+#if SAME70
+		freeWriteBuffers = new FileWriteBuffer(freeWriteBuffers, writeBufferStorage[i]);
+#else
 		freeWriteBuffers = new FileWriteBuffer(freeWriteBuffers);
+#endif
 	}
 
 	for (size_t card = 0; card < NumSdCards; ++card)
 	{
 		SdCardInfo& inf = info[card];
-		memset(&inf.fileSystem, 0, sizeof(inf.fileSystem));
+		inf.Clear(card);
 		inf.mounting = inf.isMounted = false;
 		inf.cdPin = SdCardDetectPins[card];
 		inf.cardState = (inf.cdPin == NoPin) ? CardDetectState::present : CardDetectState::notPresent;
@@ -231,6 +303,7 @@ void MassStorage::Init() noexcept
 	sd_mmc_init(SdWriteProtectPins, SdSpiCSPins);		// initialize SD MMC stack
 
 	// We no longer mount the SD card here because it may take a long time if it fails
+# endif
 }
 
 FileStore* MassStorage::OpenFile(const char* filePath, OpenMode mode, uint32_t preAllocSize) noexcept
@@ -248,7 +321,9 @@ FileStore* MassStorage::OpenFile(const char* filePath, OpenMode mode, uint32_t p
 	reprap.GetPlatform().Message(ErrorMessage, "Max open file count exceeded.\n");
 	return nullptr;
 }
+#endif
 
+#if HAS_MASS_STORAGE
 // Close all files
 void MassStorage::CloseAllFiles() noexcept
 {
@@ -260,42 +335,6 @@ void MassStorage::CloseAllFiles() noexcept
 			f.Close();
 		}
 	}
-}
-
-// Construct a full path name from a path and a filename. Returns false if error i.e. filename too long
-/*static*/ bool MassStorage::CombineName(const StringRef& outbuf, const char* directory, const char* fileName) noexcept
-{
-	bool hadError = false;
-	if (directory != nullptr && directory[0] != 0 && fileName[0] != '/' && (strlen(fileName) < 2 || !isdigit(fileName[0]) || fileName[1] != ':'))
-	{
-		hadError = outbuf.copy(directory);
-		if (!hadError)
-		{
-			const size_t len = outbuf.strlen();
-			if (len != 0 && outbuf[len - 1] != '/')
-			{
-				hadError = outbuf.cat('/');
-			}
-		}
-	}
-	else
-	{
-		outbuf.Clear();
-	}
-	if (!hadError)
-	{
-		hadError = outbuf.cat(fileName);
-	}
-	if (hadError)
-	{
-		reprap.GetPlatform().MessageF(ErrorMessage, "Filename too long: cap=%u, dir=%.12s%s name=%.12s%s\n",
-										outbuf.Capacity(),
-										directory, (strlen(directory) > 12 ? "..." : ""),
-										fileName, (strlen(fileName) > 12 ? "..." : "")
-									 );
-		outbuf.copy("?????");
-	}
-	return !hadError;
 }
 
 // Open a directory to read a file list. Returns true if it contains any files, false otherwise.
@@ -518,13 +557,36 @@ bool MassStorage::Rename(const char *oldFilename, const char *newFilename, bool 
 	}
 	return true;
 }
+#endif
 
+#if HAS_MASS_STORAGE || HAS_LINUX_INTERFACE
 // Check if the specified file exists
 bool MassStorage::FileExists(const char *filePath) noexcept
 {
-	FILINFO fil;
-	return (f_stat(filePath, &fil) == FR_OK);
+#if HAS_LINUX_INTERFACE
+	if (!reprap.UsingLinuxInterface())
+#endif
+	{
+#if HAS_MASS_STORAGE
+		FILINFO fil;
+		return (f_stat(filePath, &fil) == FR_OK);
+#else
+		return false;
+#endif
+	}
+#if HAS_LINUX_INTERFACE
+	else
+	{
+		char dummyBuf[1];
+		uint32_t dummyLen = 0;
+		uint32_t dummyFileSize = 0;
+		return reprap.GetLinuxInterface().GetFileChunk(filePath, 0, dummyBuf, dummyLen, dummyFileSize);
+	}
+#endif
 }
+#endif
+
+#if HAS_MASS_STORAGE
 
 // Check if the specified directory exists
 // Warning: if 'path' has a trailing '/' or '\\' character, it will be removed!
@@ -916,12 +978,12 @@ bool MassStorage::IsDriveMounted(size_t drive) noexcept
 	return drive < NumSdCards && info[drive].isMounted;
 }
 
-const Mutex& MassStorage::GetVolumeMutex(size_t vol) noexcept
+Mutex& MassStorage::GetVolumeMutex(size_t vol) noexcept
 {
 	return info[vol].volMutex;
 }
 
-bool MassStorage::GetFileInfo(const char *filePath, GCodeFileInfo& info, bool quitEarly) noexcept
+GCodeResult MassStorage::GetFileInfo(const char *filePath, GCodeFileInfo& info, bool quitEarly) noexcept
 {
 	return infoParser.GetFileInfo(filePath, info, quitEarly);
 }

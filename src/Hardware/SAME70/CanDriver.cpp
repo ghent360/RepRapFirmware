@@ -116,24 +116,23 @@
 /* Get a value of 2 to 15 bit. */
 #define BIT_2_TO_15_MASK         0x0000fffc
 
-#define __nocache	__attribute__((section(".ram_nocache")))
-
 /* Message ram definition. */
-alignas(4) __nocache static struct mcan_rx_element mcan0_rx_buffer[CONF_MCAN0_RX_BUFFER_NUM];
-alignas(4) __nocache static struct mcan_rx_element mcan0_rx_fifo_0[CONF_MCAN0_RX_FIFO_0_NUM];
-alignas(4) __nocache static struct mcan_rx_element mcan0_rx_fifo_1[CONF_MCAN0_RX_FIFO_1_NUM];
-alignas(4) __nocache static struct mcan_tx_element mcan0_tx_buffer[CONF_MCAN0_TX_BUFFER_NUM + CONF_MCAN0_TX_FIFO_QUEUE_NUM];
-alignas(4) __nocache static struct mcan_tx_event_element mcan0_tx_event_fifo[CONF_MCAN0_TX_EVENT_FIFO];
-alignas(4) __nocache static struct mcan_standard_message_filter_element mcan0_rx_standard_filter[CONF_MCAN0_RX_STANDARD_ID_FILTER_NUM];
-alignas(4) __nocache static struct mcan_extended_message_filter_element mcan0_rx_extended_filter[CONF_MCAN0_RX_EXTENDED_ID_FILTER_NUM];
+#define CanMemory	__attribute__ ((section (".CanMessage")))
+alignas(4) CanMemory static struct mcan_rx_element mcan0_rx_buffer[CONF_MCAN0_RX_BUFFER_NUM];
+alignas(4) CanMemory static struct mcan_rx_element mcan0_rx_fifo_0[CONF_MCAN0_RX_FIFO_0_NUM];
+alignas(4) CanMemory static struct mcan_rx_element mcan0_rx_fifo_1[CONF_MCAN0_RX_FIFO_1_NUM];
+alignas(4) CanMemory static struct mcan_tx_element mcan0_tx_buffer[CONF_MCAN0_TX_BUFFER_NUM + CONF_MCAN0_TX_FIFO_QUEUE_NUM];
+alignas(4) CanMemory static struct mcan_tx_event_element mcan0_tx_event_fifo[CONF_MCAN0_TX_EVENT_FIFO];
+alignas(4) CanMemory static struct mcan_standard_message_filter_element mcan0_rx_standard_filter[CONF_MCAN0_RX_STANDARD_ID_FILTER_NUM];
+alignas(4) CanMemory static struct mcan_extended_message_filter_element mcan0_rx_extended_filter[CONF_MCAN0_RX_EXTENDED_ID_FILTER_NUM];
 
-alignas(4) __nocache static struct mcan_rx_element mcan1_rx_buffer[CONF_MCAN1_RX_BUFFER_NUM];
-alignas(4) __nocache static struct mcan_rx_element mcan1_rx_fifo_0[CONF_MCAN1_RX_FIFO_0_NUM];
-alignas(4) __nocache static struct mcan_rx_element mcan1_rx_fifo_1[CONF_MCAN1_RX_FIFO_1_NUM];
-alignas(4) __nocache static struct mcan_tx_element mcan1_tx_buffer[CONF_MCAN1_TX_BUFFER_NUM + CONF_MCAN1_TX_FIFO_QUEUE_NUM];
-alignas(4) __nocache static struct mcan_tx_event_element mcan1_tx_event_fifo[CONF_MCAN1_TX_EVENT_FIFO];
-alignas(4) __nocache static struct mcan_standard_message_filter_element mcan1_rx_standard_filter[CONF_MCAN1_RX_STANDARD_ID_FILTER_NUM];
-alignas(4) __nocache static struct mcan_extended_message_filter_element mcan1_rx_extended_filter[CONF_MCAN1_RX_EXTENDED_ID_FILTER_NUM];
+alignas(4) CanMemory static struct mcan_rx_element mcan1_rx_buffer[CONF_MCAN1_RX_BUFFER_NUM];
+alignas(4) CanMemory static struct mcan_rx_element mcan1_rx_fifo_0[CONF_MCAN1_RX_FIFO_0_NUM];
+alignas(4) CanMemory static struct mcan_rx_element mcan1_rx_fifo_1[CONF_MCAN1_RX_FIFO_1_NUM];
+alignas(4) CanMemory static struct mcan_tx_element mcan1_tx_buffer[CONF_MCAN1_TX_BUFFER_NUM + CONF_MCAN1_TX_FIFO_QUEUE_NUM];
+alignas(4) CanMemory static struct mcan_tx_event_element mcan1_tx_event_fifo[CONF_MCAN1_TX_EVENT_FIFO];
+alignas(4) CanMemory static struct mcan_standard_message_filter_element mcan1_rx_standard_filter[CONF_MCAN1_RX_STANDARD_ID_FILTER_NUM];
+alignas(4) CanMemory static struct mcan_extended_message_filter_element mcan1_rx_extended_filter[CONF_MCAN1_RX_EXTENDED_ID_FILTER_NUM];
 
 static constexpr uint8_t dlc2len[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64};
 
@@ -302,20 +301,9 @@ static void _mcan_enable_peripheral_clock(mcan_module *const module_inst) noexce
 	}
 }
 
-/**
- * \brief initialize can module.
- *
- * \param module_inst  MCAN instance
- * \param hw  Base address of MCAN.
- * \param config default configuration .
- */
-void mcan_init(mcan_module *const module_inst, Mcan *hw, struct mcan_config *config) noexcept
+// One-time initialisation. Do not call this to reset after a bus_off condition.
+void mcan_init_once(mcan_module *const module_inst, Mcan *hw) noexcept
 {
-	/* Sanity check arguments */
-	Assert(module_inst);
-	Assert(hw);
-	Assert(config);
-
 	/* Associate the software module instance with the hardware module */
 	module_inst->hw = hw;
 	module_inst->taskWaitingOnFifo[0] = module_inst->taskWaitingOnFifo[1] = nullptr;
@@ -328,6 +316,18 @@ void mcan_init(mcan_module *const module_inst, Mcan *hw, struct mcan_config *con
 
 	/* Enable peripheral clock */
 	_mcan_enable_peripheral_clock(module_inst);
+}
+
+/**
+ * \brief initialize can module.
+ *
+ * \param module_inst  MCAN instance
+ * \param hw  Base address of MCAN.
+ * \param config default configuration .
+ */
+void mcan_init(mcan_module *const module_inst, struct mcan_config *config) noexcept
+{
+	Mcan * const hw = module_inst->hw;
 
 	/* Configuration Change Enable. */
 	hw->MCAN_CCCR |= MCAN_CCCR_CCE;
@@ -751,11 +751,11 @@ bool GetMessageFromFifo(mcan_module *const module_inst, CanMessageBuffer *buf, u
 			mcan_rx_element elem;
 			if (fifoNumber == 1)
 			{
-				mcan_get_rx_fifo_1_element(module_inst, &elem, getIndex);		// copy the data (TODO use our own driver, avoid double copying)
+				mcan_get_rx_fifo_1_element(module_inst, &elem, getIndex);			// copy the data (TODO use our own driver, avoid double copying)
 			}
 			else
 			{
-				mcan_get_rx_fifo_0_element(module_inst, &elem, getIndex);		// copy the data (TODO use our own driver, avoid double copying)
+				mcan_get_rx_fifo_0_element(module_inst, &elem, getIndex);			// copy the data (TODO use our own driver, avoid double copying)
 			}
 			fifoRegisters[1] = getIndex;											// acknowledge it, release the FIFO entry
 

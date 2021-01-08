@@ -56,8 +56,8 @@
 
 #define HAS_ATX_POWER_MONITOR            1
 
-#define SUPPORT_DOTSTAR_LED              1
-
+#define SUPPORT_LED_STRIPS               1
+#define SUPPORT_ASYNC_MOVES		         0
 #define ALLOCATE_DEFAULT_PORTS           0
 
 #if defined(LPC_NETWORKING)
@@ -160,7 +160,7 @@ extern Pin ENABLE_PINS[NumDirectDrivers];
 extern Pin STEP_PINS[NumDirectDrivers];
 extern Pin DIRECTION_PINS[NumDirectDrivers];
 #if SUPPORT_TMC22xx
-extern Pin DIAG_PINS[NumDirectDrivers];
+extern Pin DriverDiagPins[NumDirectDrivers];
 #endif
 #if TMC_SOFT_UART
     extern Pin TMC_UART_PINS[NumDirectDrivers];
@@ -274,7 +274,7 @@ extern Pin AuxSerialRxTxPins[NumberSerialPins];
     constexpr SSPChannel ESP_SPI = SSP2;
 #endif
 
-#if SUPPORT_DOTSTAR_LED
+#if SUPPORT_LED_STRIPS
 extern Pin NeopixelOutPin;
 #endif
 
@@ -379,6 +379,7 @@ constexpr BoardEntry LPC_Boards[] =
     {"biquskrpro_1.1",      PinTable_BIQU_SKR_PRO_v1_1,    ARRAY_SIZE(PinTable_BIQU_SKR_PRO_v1_1),    biquskr_pro_1_1_Defaults},
     {"biqugtr_1.0",      PinTable_BIQU_GTR_v1_0,    ARRAY_SIZE(PinTable_BIQU_GTR_v1_0),    biqu_gtr_1_0_Defaults},
     {"fly_f407zg",      PinTable_FLY_F407ZG,    ARRAY_SIZE(PinTable_FLY_F407ZG),    fly_f407zg_Defaults},
+    {"fly_e3",      PinTable_FLY_E3,    ARRAY_SIZE(PinTable_FLY_E3),    fly_e3_Defaults},
 };
 
 

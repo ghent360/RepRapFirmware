@@ -29,21 +29,22 @@
 
 #if SAME70
 
-constexpr unsigned int DdaRingLength = 60;
+constexpr unsigned int InitialDdaRingLength = 60;
 constexpr unsigned int AuxDdaRingLength = 5;
-constexpr unsigned int NumDms = (DdaRingLength/2 * 12) + (AuxDdaRingLength * 3);	// allow enough for plenty of CAN expansion
+const unsigned int InitialNumDms = (InitialDdaRingLength/2 * 4) + AuxDdaRingLength;
 
-#elif SAM4E || SAM4S || SAME5x
+#elif SAM4E || SAM4S || SAME5x || STM32F4
 
-constexpr unsigned int DdaRingLength = 40;
+constexpr unsigned int InitialDdaRingLength = 40;
 constexpr unsigned int AuxDdaRingLength = 3;
-const unsigned int NumDms = (DdaRingLength/2 * 8) + (AuxDdaRingLength * 3);		// suitable for e.g. a delta + 5 input hot end
+const unsigned int InitialNumDms = (InitialDdaRingLength/2 * 4) + AuxDdaRingLength;
 
 #else
 
-// We are more memory-constrained on the SAM3X
-const unsigned int DdaRingLength = 20;
-const unsigned int NumDms = 20 * 5;												// suitable for e.g. a delta + 2-input hot end
+// We are more memory-constrained on the SAM3X and LPC
+constexpr unsigned int InitialDdaRingLength = 20;
+constexpr unsigned int AuxDdaRingLength = 0;
+const unsigned int InitialNumDms = (InitialDdaRingLength/2 * 4) + AuxDdaRingLength;
 
 #endif
 
@@ -96,6 +97,7 @@ public:
 
 	GCodeResult ConfigureAccelerations(GCodeBuffer&gb, const StringRef& reply) noexcept;		// process M204
 	GCodeResult ConfigureDynamicAcceleration(GCodeBuffer& gb, const StringRef& reply) noexcept;	// process M593
+	GCodeResult ConfigureMovementQueue(GCodeBuffer& gb, const StringRef& reply) noexcept;		// process M595
 
 	float GetMaxPrintingAcceleration() const noexcept { return maxPrintingAcceleration; }
 	float GetMaxTravelAcceleration() const noexcept { return maxTravelAcceleration; }
