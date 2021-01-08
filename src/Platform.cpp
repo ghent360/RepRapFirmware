@@ -36,10 +36,11 @@
 #include "Logger.h"
 #include "Tasks.h"
 #include <Cache.h>
-#include "Hardware/SharedSpi/SharedSpiDevice.h"
-#include "Math/Isqrt.h"
-#include "Hardware/I2C.h"
+#include <Hardware/SharedSpi/SharedSpiDevice.h>
+#include <Math/Isqrt.h>
+#include <Hardware/I2C.h>
 #include <Hardware/NonVolatileMemory.h>
+#include <Storage/CRC32.h>
 #if __LPC17xx__
 # include "LPC/BoardConfig.h"
 # ifdef LPC_DEBUG
@@ -52,9 +53,8 @@
 # include <sd_mmc.h>
 # include "ResetCause.h"
 #else
-
 #if SAM4E || SAM4S || SAME70
-# include "sam/services/flash_efc/flash_efc.h"		// for flash_read_unique_id()
+# include <Flash.h>		// for flash_read_unique_id()
 #endif
 
 #if SAME70
@@ -82,7 +82,7 @@ using AnalogIn::AdcBits;
 #endif
 
 #if HAS_WIFI_NETWORKING
-# include "FirmwareUpdater.h"
+# include <Comms/FirmwareUpdater.h>
 #endif
 
 #if SUPPORT_12864_LCD
@@ -262,7 +262,9 @@ constexpr ObjectModelTableEntry Platform::objectModelTable[] =
 #if HAS_LINUX_INTERFACE
 	{ "iapFileNameSBC",		OBJECT_MODEL_FUNC_NOSELF(IAP_UPDATE_FILE_SBC),														ObjectModelEntryFlags::none },
 #endif
+#if HAS_MASS_STORAGE
 	{ "iapFileNameSD",		OBJECT_MODEL_FUNC_NOSELF(IAP_UPDATE_FILE),															ObjectModelEntryFlags::none },
+#endif
 	{ "maxHeaters",			OBJECT_MODEL_FUNC_NOSELF((int32_t)MaxHeaters),														ObjectModelEntryFlags::verbose },
 	{ "maxMotors",			OBJECT_MODEL_FUNC_NOSELF((int32_t)NumDirectDrivers),												ObjectModelEntryFlags::verbose },
 	{ "mcuTemp",			OBJECT_MODEL_FUNC(self, 1),																			ObjectModelEntryFlags::live },
@@ -358,7 +360,7 @@ constexpr ObjectModelTableEntry Platform::objectModelTable[] =
 constexpr uint8_t Platform::objectModelTableDescriptor[] =
 {
 	9,																		// number of sections
-	12 + HAS_LINUX_INTERFACE + HAS_12V_MONITOR + SUPPORT_CAN_EXPANSION + SUPPORT_12864_LCD + MCU_HAS_UNIQUE_ID,		// section 0: boards[0]
+	11 + HAS_LINUX_INTERFACE + HAS_MASS_STORAGE + HAS_12V_MONITOR + SUPPORT_CAN_EXPANSION + SUPPORT_12864_LCD + MCU_HAS_UNIQUE_ID,		// section 0: boards[0]
 #if HAS_CPU_TEMP_SENSOR
 	3,																		// section 1: mcuTemp
 #else
@@ -498,7 +500,8 @@ void Platform::Init() noexcept
 	{
 		pinMode(SdCardDetectPins[i], INPUT_PULLUP);
 	}
-#if HAS_MASS_STORAGE
+
+#if HAS_MASS_STORAGE || HAS_LINUX_INTERFACE
 	MassStorage::Init();
 #endif
 
@@ -890,8 +893,9 @@ void Platform::ReadUniqueId()
 	}
 # else
 	memset(uniqueId, 0, sizeof(uniqueId));
+
 	const bool cacheWasEnabled = Cache::Disable();
-	const uint32_t rc = flash_read_unique_id(uniqueId, 4);
+	const uint32_t rc = flash_read_unique_id(uniqueId);
 	if (cacheWasEnabled)
 	{
 		Cache::Enable();
@@ -1761,7 +1765,7 @@ extern void SPWMDiagnostics();
 // Return diagnostic information
 void Platform::Diagnostics(MessageType mtype) noexcept
 {
-#if USE_CACHE && SAM4E
+#if USE_CACHE && (SAM4E || SAME5x)
 	// Get the cache statistics before we start messing around with the cache
 	const uint32_t cacheCount = Cache::GetHitCount();
 #endif
@@ -1845,6 +1849,14 @@ void Platform::Diagnostics(MessageType mtype) noexcept
 	// Show the current error codes
 	MessageF(mtype, "Error status: 0x%02" PRIx32 "\n", errorCodeBits);		// we only use the bottom 5 bits at present, so print just 2 characters
 
+#if HAS_AUX_DEVICES
+	// Show the aux port status
+	for (size_t i = 0; i < ARRAY_SIZE(auxDevices); ++i)
+	{
+		auxDevices[i].Diagnostics(mtype, i);
+	}
+#endif
+
 #if HAS_CPU_TEMP_SENSOR
 	// Show the MCU temperatures
 	const float currentMcuTemperature = GetCpuTemperature();
@@ -1904,7 +1916,7 @@ void Platform::Diagnostics(MessageType mtype) noexcept
 		Message(mtype, "not set\n");
 	}
 
-#if USE_CACHE && SAM4E
+#if USE_CACHE && (SAM4E || SAME5x)
 	MessageF(mtype, "Cache data hit count %" PRIu32 "\n", cacheCount);
 #endif
 
@@ -1961,8 +1973,6 @@ static uint32_t TimedSqrt(uint64_t arg, uint32_t& timeAcc) noexcept
 
 GCodeResult Platform::DiagnosticTest(GCodeBuffer& gb, const StringRef& reply, OutputBuffer*& buf, unsigned int d) THROWS(GCodeException)
 {
-	static const uint32_t dummy[2] = { 0, 0 };
-
 	switch (d)
 	{
 	case (unsigned int)DiagnosticTestType::PrintTestReport:
@@ -2175,16 +2185,14 @@ GCodeResult Platform::DiagnosticTest(GCodeBuffer& gb, const StringRef& reply, Ou
 		(void)RepRap::DoDivide(1, 0);							// call function in another module so it can't be optimised away
 		break;
 
-	case (unsigned int)DiagnosticTestType::UnalignedMemoryAccess: // do an unaligned memory access to test exception handling
+	case (unsigned int)DiagnosticTestType::UnalignedMemoryAccess: // disable unaligned memory accesses
 		if (!gb.DoDwellTime(1000))								// wait a second to allow the response to be sent back to the web server, otherwise it may retry
 		{
 			return GCodeResult::notFinished;
 		}
 		deliberateError = true;
 		SCB->CCR |= SCB_CCR_UNALIGN_TRP_Msk;					// by default, unaligned memory accesses are allowed, so change that
-		__DSB();												// make sure that instruction completes
-		__DMB();												// don't allow prefetch
-		(void)*(reinterpret_cast<const volatile char*>(dummy) + 1);
+		// We don't actually generate a fault any more, instead we let this function identify existing unaligned accesses in the code
 		break;
 
 	case (unsigned int)DiagnosticTestType::BusFault:
@@ -2241,7 +2249,8 @@ GCodeResult Platform::DiagnosticTest(GCodeBuffer& gb, const StringRef& reply, Ou
 
 			bool ok2 = true;
 			uint32_t tim2 = 0;
-			for (uint32_t i = 0; i < 100; ++i)
+			constexpr uint32_t iterations = 100;				// use a value that divides into one million
+			for (uint32_t i = 0; i < iterations; ++i)
 			{
 				const uint32_t num2 = 0x0000ffff - (67 * i);
 				const uint64_t sq = (uint64_t)num2 * num2;
@@ -2253,15 +2262,16 @@ GCodeResult Platform::DiagnosticTest(GCodeBuffer& gb, const StringRef& reply, Ou
 			}
 
 			reply.printf("Square roots: 62-bit %.2fus %s, 32-bit %.2fus %s",
-					(double)(tim1 * 10000)/SystemCoreClock, (ok1) ? "ok" : "ERROR",
-							(double)(tim2 * 10000)/SystemCoreClock, (ok2) ? "ok" : "ERROR");
+					(double)((float)(tim1 * (1'000'000/iterations))/SystemCoreClock), (ok1) ? "ok" : "ERROR",
+							(double)((float)(tim2 * (1'000'000/iterations))/SystemCoreClock), (ok2) ? "ok" : "ERROR");
 		}
 		break;
 
 	case (unsigned int)DiagnosticTestType::TimeSinCos:			// Show the sin/cosine calculation time. Caution: may disable interrupt for several tens of microseconds.
 		{
 			uint32_t tim1 = 0;
-			for (unsigned int i = 0; i < 100; ++i)
+			constexpr uint32_t iterations = 100;				// use a value that divides into one million
+			for (unsigned int i = 0; i < iterations; ++i)
 			{
 				const float angle = 0.01 * i;
 
@@ -2278,7 +2288,7 @@ GCodeResult Platform::DiagnosticTest(GCodeBuffer& gb, const StringRef& reply, Ou
 			}
 
 			// We no longer calculate sin and cos for doubles because it pulls in those library functions, which we don't otherwise need
-			reply.printf("Sine + cosine: float %.2fus", (double)(tim1 * 10000)/SystemCoreClock);
+			reply.printf("Sine + cosine: float %.2fus", (double)((float)(tim1 * (1'000'000/iterations))/SystemCoreClock));
 		}
 		break;
 
@@ -2361,6 +2371,30 @@ GCodeResult Platform::DiagnosticTest(GCodeBuffer& gb, const StringRef& reply, Ou
 					, reinterpret_cast<uint32_t>(&reprap.GetExpansion()), reinterpret_cast<uint32_t>(&reprap.GetExpansion()) + sizeof(ExpansionManager) - 1
 #endif
 				);
+		break;
+
+	case (unsigned int)DiagnosticTestType::TimeCRC32:
+		{
+			const size_t length = (gb.Seen('S')) ? gb.GetUIValue() : 1024;
+			CRC32 crc;
+			cpu_irq_disable();
+			asm volatile("":::"memory");
+			uint32_t now1 = SysTick->VAL;
+			crc.Update(
+#if SAME5x
+						reinterpret_cast<const char*>(HSRAM_ADDR),
+#else
+						reinterpret_cast<const char*>(IRAM_ADDR),		// for the SAME70 this is in the non-cacheable RAM, which is the usual case when computing a CRC
+#endif
+						length);
+			uint32_t now2 = SysTick->VAL;
+			asm volatile("":::"memory");
+			cpu_irq_enable();
+			now1 &= 0x00FFFFFF;
+			now2 &= 0x00FFFFFF;
+			uint32_t tim1 = ((now1 > now2) ? now1 : now1 + (SysTick->LOAD & 0x00FFFFFF) + 1) - now2;
+			reply.printf("CRC of %u bytes took %.2fus", length, (double)((1'000'000.0f * (float)tim1)/(float)SystemCoreClock));
+		}
 		break;
 
 #ifdef DUET_NG
@@ -3458,7 +3492,8 @@ void Platform::MessageF(MessageType type, const char *fmt, ...) noexcept
 void Platform::Message(MessageType type, const char *message) noexcept
 {
 #if HAS_LINUX_INTERFACE
-	if (reprap.UsingLinuxInterface() && ((type & GenericMessage) == GenericMessage || (type & BinaryCodeReplyFlag) != 0))
+	if (reprap.UsingLinuxInterface() &&
+		((type & BinaryCodeReplyFlag) != 0 || (type & GenericMessage) == GenericMessage || (type & LogOff) != LogOff))
 	{
 		reprap.GetLinuxInterface().HandleGCodeReply(type, message);
 		if ((type & BinaryCodeReplyFlag) != 0)
@@ -4019,13 +4054,7 @@ bool Platform::IsDuetWiFi() const noexcept
 
 #endif
 
-#if HAS_MASS_STORAGE
-
-// Where the system files are. Not thread safe!
-const char* Platform::InternalGetSysDir() const noexcept
-{
-	return (sysDir != nullptr) ? sysDir : DEFAULT_SYS_DIR;
-}
+#if HAS_MASS_STORAGE || HAS_LINUX_INTERFACE
 
 // Open a file
 FileStore* Platform::OpenFile(const char* folder, const char* fileName, OpenMode mode, uint32_t preAllocSize) const noexcept
@@ -4036,16 +4065,26 @@ FileStore* Platform::OpenFile(const char* folder, const char* fileName, OpenMode
 				: nullptr;
 }
 
-bool Platform::Delete(const char* folder, const char *filename) const noexcept
-{
-	String<MaxFilenameLength> location;
-	return MassStorage::CombineName(location.GetRef(), folder, filename) && MassStorage::Delete(location.c_str(), true);
-}
-
 bool Platform::FileExists(const char* folder, const char *filename) const noexcept
 {
 	String<MaxFilenameLength> location;
 	return MassStorage::CombineName(location.GetRef(), folder, filename) && MassStorage::FileExists(location.c_str());
+}
+
+#endif
+
+#if HAS_MASS_STORAGE
+
+// Return a pointer to a string holding the directory where the system files are. Lock the sysdir lock before calling this.
+const char* Platform::InternalGetSysDir() const noexcept
+{
+	return (sysDir != nullptr) ? sysDir : DEFAULT_SYS_DIR;
+}
+
+bool Platform::Delete(const char* folder, const char *filename) const noexcept
+{
+	String<MaxFilenameLength> location;
+	return MassStorage::CombineName(location.GetRef(), folder, filename) && MassStorage::Delete(location.c_str(), true);
 }
 
 bool Platform::DirectoryExists(const char *folder, const char *dir) const noexcept
@@ -4058,7 +4097,7 @@ bool Platform::DirectoryExists(const char *folder, const char *dir) const noexce
 GCodeResult Platform::SetSysDir(const char* dir, const StringRef& reply) noexcept
 {
 	String<MaxFilenameLength> newSysDir;
-	MutexLocker lock(Tasks::GetSysDirMutex());
+	WriteLocker lock(sysDirLock);
 
 	if (!MassStorage::CombineName(newSysDir.GetRef(), InternalGetSysDir(), dir) || (!newSysDir.EndsWith('/') && newSysDir.cat('/')))
 	{
@@ -4098,20 +4137,18 @@ bool Platform::DeleteSysFile(const char *filename) const noexcept
 
 bool Platform::MakeSysFileName(const StringRef& result, const char *filename) const noexcept
 {
-	MutexLocker lock(Tasks::GetSysDirMutex());
-	return MassStorage::CombineName(result, InternalGetSysDir(), filename);
+	return MassStorage::CombineName(result, GetSysDir().Ptr(), filename);
 }
 
 void Platform::AppendSysDir(const StringRef & path) const noexcept
 {
-	MutexLocker lock(Tasks::GetSysDirMutex());
-	path.cat(InternalGetSysDir());
+	path.cat(GetSysDir().Ptr());
 }
 
-void Platform::EncodeSysDir(OutputBuffer *buf) const noexcept
+ReadLockedPointer<const char> Platform::GetSysDir() const noexcept
 {
-	MutexLocker lock(Tasks::GetSysDirMutex());
-	buf->EncodeString(InternalGetSysDir(), false);
+	ReadLocker lock(sysDirLock);
+	return ReadLockedPointer<const char>(lock, InternalGetSysDir());
 }
 
 #endif

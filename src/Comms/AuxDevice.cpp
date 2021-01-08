@@ -5,7 +5,10 @@
  *      Author: David
  */
 
-#include <Comms/AuxDevice.h>
+#include "AuxDevice.h"
+
+#include <RepRap.h>
+#include <Platform.h>
 
 AuxDevice::AuxDevice() noexcept : uart(nullptr), seq(0), enabled(false), raw(true)
 {
@@ -48,9 +51,7 @@ void AuxDevice::SendPanelDueMessage(const char* msg) noexcept
 		OutputBuffer *buf;
 		if (OutputBuffer::Allocate(buf))
 		{
-			buf->copy("{\"message\":");
-			buf->EncodeString(msg, false);
-			buf->cat("}\n");
+			buf->printf("{\"message\":\"%.s\"}\n", msg);
 			outStack.Push(buf);
 			Flush();
 		}
@@ -73,9 +74,7 @@ void AuxDevice::AppendAuxReply(const char *msg, bool rawMessage) noexcept
 			else
 			{
 				seq++;
-				buf->printf("{\"seq\":%" PRIu32 ",\"resp\":", seq);
-				buf->EncodeString(msg, true, false);
-				buf->cat("}\n");
+				buf->printf("{\"seq\":%" PRIu32 ",\"resp\":\"%.s\"}\n", seq, msg);
 			}
 			outStack.Push(buf);
 		}
@@ -147,6 +146,12 @@ bool AuxDevice::Flush() noexcept
 		hasMore = !outStack.IsEmpty();
 	}
 	return hasMore;
+}
+
+void AuxDevice::Diagnostics(MessageType mt, unsigned int index) noexcept
+{
+	const UARTClass::Errors errs = uart->GetAndClearErrors();
+	reprap.GetPlatform().MessageF(mt, "Aux%u errors %u,%u,%u\n", index, (unsigned int)errs.uartOverrun, (unsigned int)errs.bufferOverrun, (unsigned int)errs.framing);
 }
 
 // End

@@ -1005,11 +1005,7 @@ uint32_t TmcDriverState::ReadLiveStatus() const noexcept
 	if (IoPort::ReadPin(diagPin))
 	{
 		ret |= TMC_RR_SG;
-		EndstopOrZProbe::UpdateStalledDrivers(driverBit, true);
 	}
-	else
-		EndstopOrZProbe::UpdateStalledDrivers(driverBit, false);
-
 #endif
 	return ret;
 }
@@ -1431,9 +1427,6 @@ void SmartDrivers::Init() noexcept
 	pinMode(TMC22xxMuxPins[1], OUTPUT_LOW);
 	pinMode(TMC22xxMuxPins[2], OUTPUT_LOW);
 #endif
-#if HAS_STALL_DETECT
-	EndstopOrZProbe::UpdateStalledDrivers(DriversBitmap::MakeLowestNBits(MaxSmartDrivers), false);
-#endif
 
 	driversState = DriversState::noPower;
 	for (size_t drive = 0; drive < GetNumTmcDrivers(); ++drive)
@@ -1460,7 +1453,7 @@ void SmartDrivers::Init() noexcept
 								, ENABLE_PINS[drive]
 #endif
 #if HAS_STALL_DETECT
-								, DIAG_PINS[drive]
+								, DriverDiagPins[drive]
 #endif
 								);
 	}
@@ -1581,9 +1574,6 @@ void SmartDrivers::Spin(bool powered) noexcept
 	{
 		if (powered)
 		{
-#if HAS_STALL_DETECT
-			EndstopOrZProbe::UpdateStalledDrivers(DriversBitmap::MakeLowestNBits(MaxSmartDrivers), false);
-#endif
 			// Power to the drivers has been provided or restored, so we need to enable and re-initialise them
 			for (size_t drive = 0; drive < GetNumTmcDrivers(); ++drive)
 			{
@@ -1657,10 +1647,6 @@ void SmartDrivers::Spin(bool powered) noexcept
 			TmcDriverState::currentDriver = nullptr;
 		}
 		driversState = DriversState::noPower;
-#if HAS_STALL_DETECT
-		EndstopOrZProbe::UpdateStalledDrivers(DriversBitmap::MakeLowestNBits(MaxSmartDrivers), false);
-#endif
-
 	}
 }
 
@@ -1745,6 +1731,24 @@ uint32_t SmartDrivers::GetRegister(size_t driver, SmartDriverRegister reg) noexc
 {
 	return (driver < GetNumTmcDrivers()) ? driverStates[driver].GetRegister(reg) : 0;
 }
+
+#if HAS_STALL_DETECT
+
+DriversBitmap SmartDrivers::GetStalledDrivers(DriversBitmap driversOfInterest) noexcept
+{
+	DriversBitmap rslt;
+	driversOfInterest.Iterate([&rslt](unsigned int driverNumber, unsigned int count)
+								{
+									if (driverNumber < ARRAY_SIZE(DriverDiagPins) && digitalRead(DriverDiagPins[driverNumber]))
+									{
+										rslt.SetBit(driverNumber);
+									}
+								}
+							 );
+	return rslt;
+}
+#endif
+
 #endif
 
 // End

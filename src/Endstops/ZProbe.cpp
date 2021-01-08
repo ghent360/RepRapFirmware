@@ -81,7 +81,7 @@ DEFINE_GET_OBJECT_MODEL_TABLE(ZProbe)
 
 #endif
 
-ZProbe::ZProbe(unsigned int num, ZProbeType p_type) noexcept : EndstopOrZProbe(), number(num), isDeployedByUser(false)
+ZProbe::ZProbe(unsigned int num, ZProbeType p_type) noexcept : EndstopOrZProbe(), number(num), lastStopHeight(0.0), isDeployedByUser(false)
 {
 	SetDefaults();
 	type = p_type;
@@ -163,10 +163,7 @@ int ZProbe::GetReading() const noexcept
 #if HAS_STALL_DETECT
 			{
 				const DriversBitmap zDrivers = reprap.GetPlatform().GetAxisDriversConfig(Z_AXIS).GetDriversBitmap();
-#if SUPPORT_TMC22xx
-				UpdateStalledDriversState(zDrivers);
-#endif
-				zProbeVal = (zDrivers.Intersects(GetStalledDrivers())) ? 1000 : 0;
+				zProbeVal = (GetStalledDrivers(zDrivers).IsNonEmpty()) ? 1000 : 0;
 			}
 #else
 			return 1000;

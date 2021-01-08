@@ -4,20 +4,14 @@
 #define BOARD_SHORT_NAME		"MB6HC"
 #define BOARD_NAME				"Duet 3 MB6HC"
 #define DEFAULT_BOARD_TYPE		BoardType::Auto
-
-#ifdef DUET3_ATE
-# define FIRMWARE_NAME			"Duet 3 ATE firmware for MB6HC"
-# define IAP_FIRMWARE_FILE		"Duet3ATEFirmware_" BOARD_SHORT_NAME ".bin"
-#else
-# define FIRMWARE_NAME			"RepRapFirmware for Duet 3 MB6HC"
-# define IAP_FIRMWARE_FILE		"Duet3Firmware_" BOARD_SHORT_NAME ".bin"
-#endif
+#define FIRMWARE_NAME			"RepRapFirmware for Duet 3 MB6HC"
+#define IAP_FIRMWARE_FILE		"Duet3Firmware_" BOARD_SHORT_NAME ".bin"
 
 constexpr size_t NumFirmwareUpdateModules = 5;		// 0 = mainboard, 4 = PanelDue, values in between unused
 
-#define IAP_UPDATE_FILE			"Duet3_SDiap_" BOARD_SHORT_NAME ".bin"
-#define IAP_UPDATE_FILE_SBC		"Duet3_SBCiap_" BOARD_SHORT_NAME ".bin"
-constexpr uint32_t IAP_IMAGE_START = 0x20450000;		// last 64kb of RAM
+#define IAP_UPDATE_FILE			"Duet3_SDiap32_" BOARD_SHORT_NAME ".bin"
+#define IAP_UPDATE_FILE_SBC		"Duet3_SBCiap32_" BOARD_SHORT_NAME ".bin"
+constexpr uint32_t IAP_IMAGE_START = 0x20458000;		// last 32kb of RAM
 
 // Features definition
 #define HAS_LWIP_NETWORKING		1
@@ -38,7 +32,7 @@ constexpr uint32_t IAP_IMAGE_START = 0x20450000;		// last 64kb of RAM
 #define HAS_VREF_MONITOR		1
 
 #define SUPPORT_CAN_EXPANSION	1
-#define SUPPORT_DOTSTAR_LED		1
+#define SUPPORT_LED_STRIPS		1
 #define SUPPORT_INKJET			0					// set nonzero to support inkjet control
 #define SUPPORT_ROLAND			0					// set nonzero to support Roland mill
 #define SUPPORT_SCANNER			0					// set zero to disable support for FreeLSS scanners
@@ -154,7 +148,7 @@ constexpr uint32_t ExpectedSdCardSpeed = 25000000;
 constexpr IRQn SdhcIRQn = HSMCI_IRQn;
 
 // DotStar LED control
-#define DOTSTAR_USES_USART	0
+#define LEDSTRIP_USES_USART	0
 
 constexpr Pin DotStarMosiPin = PortAPin(13);
 constexpr Pin DotStarSclkPin = PortAPin(14);
@@ -299,8 +293,8 @@ constexpr Pin SbcTfrReadyPin = PortEPin(2);
 
 // DMA channel allocation
 constexpr DmaChannel DmacChanHsmci = 0;			// this is hard coded in the ASF HSMCI driver
-constexpr DmaChannel DmacChanWiFiTx = 1;		// only on v0.3 board
-constexpr DmaChannel DmacChanWiFiRx = 2;		// only on v0.3 board
+//constexpr DmaChannel DmacChanWiFiTx = 1;		// only on v0.3 board
+//constexpr DmaChannel DmacChanWiFiRx = 2;		// only on v0.3 board
 constexpr DmaChannel DmacChanTmcTx = 3;
 constexpr DmaChannel DmacChanTmcRx = 4;
 constexpr DmaChannel DmacChanSbcTx = 5;

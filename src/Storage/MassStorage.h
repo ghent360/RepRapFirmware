@@ -28,9 +28,12 @@ namespace MassStorage
 	bool CombineName(const StringRef& out, const char* directory, const char* fileName) noexcept;	// returns false if error i.e. filename too long
 	const char* GetMonthName(const uint8_t month) noexcept;
 
-#if HAS_MASS_STORAGE
+#if HAS_MASS_STORAGE || HAS_LINUX_INTERFACE
 	void Init() noexcept;
 	FileStore* OpenFile(const char* filePath, OpenMode mode, uint32_t preAllocSize) noexcept;
+	bool FileExists(const char *filePath) noexcept;
+#endif
+#if HAS_MASS_STORAGE
 	bool FindFirst(const char *directory, FileInfo &file_info) noexcept;
 	bool FindNext(FileInfo &file_info) noexcept;
 	void AbandonFindNext() noexcept;
@@ -38,7 +41,6 @@ namespace MassStorage
 	bool EnsurePath(const char* filePath, bool messageIfFailed) noexcept;
 	bool MakeDirectory(const char *directory, bool messageIfFailed) noexcept;
 	bool Rename(const char *oldFilePath, const char *newFilePath, bool messageIfFailed) noexcept;
-	bool FileExists(const char *filePath) noexcept;
 	bool DirectoryExists(const StringRef& path) noexcept;									// Warning: if 'path' has a trailing '/' or '\\' character, it will be removed!
 	bool DirectoryExists(const char *path) noexcept;
 	time_t GetLastModifiedTime(const char *filePath) noexcept;
@@ -53,8 +55,8 @@ namespace MassStorage
 	void CloseAllFiles() noexcept;
 	unsigned int GetNumFreeFiles() noexcept;
 	void Spin() noexcept;
-	const Mutex& GetVolumeMutex(size_t vol) noexcept;
-	bool GetFileInfo(const char *filePath, GCodeFileInfo& info, bool quitEarly) noexcept;
+	Mutex& GetVolumeMutex(size_t vol) noexcept;
+	GCodeResult GetFileInfo(const char *filePath, GCodeFileInfo& info, bool quitEarly) noexcept;
 	void RecordSimulationTime(const char *printingFilePath, uint32_t simSeconds) noexcept;	// Append the simulated printing time to the end of the file
 	FileWriteBuffer *AllocateWriteBuffer() noexcept;
 	void ReleaseWriteBuffer(FileWriteBuffer *buffer) noexcept;

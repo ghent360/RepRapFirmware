@@ -415,6 +415,34 @@ RepRap::RepRap() noexcept
 	// Don't call constructors for other objects here
 }
 
+#if 0
+
+///DEBUG to catch memory corruption
+const size_t WatchSize = 32768;
+uint32_t *watchBuffer;
+
+static void InitWatchBuffer() noexcept
+{
+	watchBuffer = (uint32_t*)malloc(WatchSize);
+	memset(watchBuffer, 0x5A, WatchSize);
+}
+
+static void CheckWatchBuffer(unsigned int module) noexcept
+{
+	uint32_t *p = watchBuffer, *end = watchBuffer + 32768/sizeof(uint32_t);
+	while (p < end)
+	{
+		if (*p != 0x5A5A5A5A)
+		{
+			debugPrintf("Address %p data %08" PRIx32 " module %u\n", p, *p, module);
+			*p = 0x5A5A5A5A;
+		}
+		++p;
+	}
+}
+
+#endif
+
 void RepRap::Init() noexcept
 {
 	OutputBuffer::Init();
@@ -1309,8 +1337,7 @@ OutputBuffer *RepRap::GetStatusResponse(uint8_t type, ResponseSource source) con
 			// Report message
 			if (sendMessage)
 			{
-				response->cat("\"message\":");
-				response->EncodeString(message, false);
+				response->catf("\"message\":\"%.s\"", message.c_str());
 				if (mbox.active)
 				{
 					response->cat(',');
@@ -1320,11 +1347,8 @@ OutputBuffer *RepRap::GetStatusResponse(uint8_t type, ResponseSource source) con
 			// Report message box
 			if (mbox.active)
 			{
-				response->cat("\"msgBox\":{\"msg\":");
-				response->EncodeString(mbox.message, false);
-				response->cat(",\"title\":");
-				response->EncodeString(mbox.title, false);
-				response->catf(",\"mode\":%d,\"seq\":%" PRIu32 ",\"timeout\":%.1f,\"controls\":%u}", mbox.mode, mbox.seq, (double)timeLeft, (unsigned int)mbox.controls.GetRaw());
+				response->catf("\"msgBox\":{\"msg\":\"%.s\",\"title\":\"%.s\",\"mode\":%d,\"seq\":%" PRIu32 ",\"timeout\":%.1f,\"controls\":%u}",
+								mbox.message.c_str(), mbox.title.c_str(), mbox.mode, mbox.seq, (double)timeLeft, (unsigned int)mbox.controls.GetRaw());
 			}
 			response->cat('}');
 		}
@@ -1481,11 +1505,9 @@ OutputBuffer *RepRap::GetStatusResponse(uint8_t type, ResponseSource source) con
 					response->cat(',');
 				}
 				first = false;
-				response->cat("{\"name\":");
-				response->EncodeString(nm, false, true);
 				float temp;
 				(void)sensor->GetLatestTemperature(temp);
-				response->catf(",\"temp\":%.1f}", HideNan(temp));
+				response->catf("{\"name\":\"%.s\",\"temp\":%.1f}", nm, HideNan(temp));
 			}
 			nextSensorNumber = sensor->GetSensorNumber() + 1;
 		}
@@ -1611,25 +1633,17 @@ OutputBuffer *RepRap::GetStatusResponse(uint8_t type, ResponseSource source) con
 		response->catf(",\"volumes\":%u,\"mountedVolumes\":%u", NumSdCards, mountedCards);
 #endif
 
-		// Machine mode,
-		const char *machineMode = gCodes->GetMachineModeString();
-		response->cat(",\"mode\":");
-		response->EncodeString(machineMode, false);
+		// Machine mode and name
+		response->catf(",\"mode\":\"%.s\",\"name\":\"%.s\"", gCodes->GetMachineModeString(), myName.c_str());
 
-		// Machine name
-		response->cat(",\"name\":");
-		response->EncodeString(myName, false);
-
-		/* Probe */
+		// Probe trigger threshold, trigger height, type
 		{
 			const auto zp = platform->GetZProbeOrDefault(0);
-
-			// Trigger threshold, trigger height, type
 			response->catf(",\"probe\":{\"threshold\":%d,\"height\":%.2f,\"type\":%u}",
 							zp->GetAdcValue(), (double)zp->GetConfiguredTriggerHeight(), (unsigned int)zp->GetProbeType());
 		}
 
-		/* Tool Mapping */
+		// Tool Mapping
 		{
 			response->cat(",\"tools\":[");
 			ReadLocker lock(toolListLock);
@@ -1639,12 +1653,10 @@ OutputBuffer *RepRap::GetStatusResponse(uint8_t type, ResponseSource source) con
 				response->catf("{\"number\":%d,", tool->Number());
 
 				// Name
-				const char *toolName = tool->GetName();
+				const char * const toolName = tool->GetName();
 				if (toolName[0] != 0)
 				{
-					response->cat("\"name\":");
-					response->EncodeString(toolName, false);
-					response->cat(',');
+					response->catf("\"name\":\"%.s\",", toolName);
 				}
 
 				// Heaters
@@ -1686,9 +1698,7 @@ OutputBuffer *RepRap::GetStatusResponse(uint8_t type, ResponseSource source) con
 				// Filament (if any)
 				if (tool->GetFilament() != nullptr)
 				{
-					const char *filamentName = tool->GetFilament()->GetName();
-					response->catf(",\"filament\":");
-					response->EncodeString(filamentName, false);
+					response->catf(",\"filament\":\"%.s\"", tool->GetFilament()->GetName());
 				}
 
 				// Offsets
@@ -1797,46 +1807,39 @@ OutputBuffer *RepRap::GetConfigResponse() noexcept
 	AppendIntArray(response, "currents", MaxAxesPlusExtruders, [this](size_t drive) noexcept { return (int)platform->GetMotorCurrent(drive, 906); });
 
 	// Firmware details
-	response->catf(",\"firmwareElectronics\":\"%s", platform->GetElectronicsString());
+	response->catf(",\"firmwareElectronics\":\"%.s", platform->GetElectronicsString());
 #ifdef DUET_NG
 	const char* expansionName = DuetExpansion::GetExpansionBoardName();
 	if (expansionName != nullptr)
 	{
-		response->catf(" + %s", expansionName);
+		response->catf(" + %.s", expansionName);
 	}
 	const char* additionalExpansionName = DuetExpansion::GetAdditionalExpansionBoardName();
 	if (additionalExpansionName != nullptr)
 	{
-		response->catf(" + %s", additionalExpansionName);
+		response->catf(" + %.s", additionalExpansionName);
 	}
 #endif
-	response->cat("\",\"firmwareName\":");
-	response->EncodeString(FIRMWARE_NAME, false);
+	response->catf("\",\"firmwareName\":\"%.s\",\"firmwareVersion\":\"%.s\"", FIRMWARE_NAME, VERSION);
 #ifdef BOARD_SHORT_NAME
-	response->cat(",\"boardName\":");
-	response->EncodeString(BOARD_SHORT_NAME, false);
+	response->catf(",\"boardName\":\"%.s\"", BOARD_SHORT_NAME);
 #endif
-	response->cat(",\"firmwareVersion\":");
-	response->EncodeString(VERSION, false);
 
 #if HAS_WIFI_NETWORKING
 	// If we have WiFi networking, send the WiFi module firmware version
 # ifdef DUET_NG
 	if (platform->IsDuetWiFi())
+# endif
 	{
-# endif
-		response->catf(",\"dwsVersion\":\"%s\"", network->GetWiFiServerVersion());
-# ifdef DUET_NG
+		response->catf(",\"dwsVersion\":\"%.s\"", network->GetWiFiServerVersion());
 	}
-# endif
 #endif
 
-	response->catf(",\"firmwareDate\":\"%s\"", DATE);
+	response->catf(",\"firmwareDate\":\"%.s\"", DATE);
 
 #if HAS_MASS_STORAGE
 	// System files folder
-	response->catf(", \"sysdir\":");
-	platform->EncodeSysDir(response);
+	response->catf(", \"sysdir\":\"%.s\"", platform->GetSysDir().Ptr());
 #endif
 
 	// Motor idle parameters
@@ -1991,12 +1994,8 @@ OutputBuffer *RepRap::GetLegacyStatusResponse(uint8_t type, int seq) const noexc
 
 		if (mbox.active)
 		{
-			response->catf(",\"msgBox.mode\":%d,\"msgBox.seq\":%" PRIu32 ",\"msgBox.timeout\":%.1f,\"msgBox.controls\":%u",
-							mbox.mode, mbox.seq, (double)timeLeft, (unsigned int)mbox.controls.GetRaw());
-			response->cat(",\"msgBox.msg\":");
-			response->EncodeString(mbox.message, false);
-			response->cat(",\"msgBox.title\":");
-			response->EncodeString(mbox.title, false);
+			response->catf(",\"msgBox.mode\":%d,\"msgBox.seq\":%" PRIu32 ",\"msgBox.timeout\":%.1f,\"msgBox.controls\":%u,\"msgBox.msg\":\"%.s\",\"msgBox.title\":\"%.s\"",
+							mbox.mode, mbox.seq, (double)timeLeft, (unsigned int)mbox.controls.GetRaw(), mbox.message.c_str(), mbox.title.c_str());
 		}
 		else
 		{
@@ -2018,11 +2017,8 @@ OutputBuffer *RepRap::GetLegacyStatusResponse(uint8_t type, int seq) const noexc
 	else if (type == 3)
 	{
 		// Add the static fields
-		response->catf(",\"geometry\":\"%s\",\"axes\":%u,\"totalAxes\":%u,\"axisNames\":\"%s\",\"volumes\":%u,\"numTools\":%u,\"myName\":",
-						move->GetGeometryString(), numVisibleAxes, gCodes->GetTotalAxes(), gCodes->GetAxisLetters(), NumSdCards, GetNumberOfContiguousTools());
-		response->EncodeString(myName, false);
-		response->cat(",\"firmwareName\":");
-		response->EncodeString(FIRMWARE_NAME, false);
+		response->catf(",\"geometry\":\"%s\",\"axes\":%u,\"totalAxes\":%u,\"axisNames\":\"%s\",\"volumes\":%u,\"numTools\":%u,\"myName\":\"%.s\",\"firmwareName\":\"%.s\"",
+						move->GetGeometryString(), numVisibleAxes, gCodes->GetTotalAxes(), gCodes->GetAxisLetters(), NumSdCards, GetNumberOfContiguousTools(), myName.c_str(), FIRMWARE_NAME);
 	}
 
 	response->cat("}\n");			// include a newline to help PanelDue resync
@@ -2042,9 +2038,7 @@ OutputBuffer *RepRap::GetFilesResponse(const char *dir, unsigned int startAt, bo
 		return nullptr;
 	}
 
-	response->copy("{\"dir\":");
-	response->EncodeString(dir, false);
-	response->catf(",\"first\":%u,\"files\":[", startAt);
+	response->printf("{\"dir\":\"%.s\",\"first\":%u,\"files\":[", dir, startAt);
 	unsigned int err;
 	unsigned int nextFile = 0;
 
@@ -2086,7 +2080,7 @@ OutputBuffer *RepRap::GetFilesResponse(const char *dir, unsigned int startAt, bo
 						bytesLeft -= response->cat(',');
 					}
 
-					bytesLeft -= response->EncodeString(fileInfo.fileName, false, flagsDirs && fileInfo.isDirectory);
+					bytesLeft -= response->catf((flagsDirs && fileInfo.isDirectory) ? "\"*%.s\"" : "\"%.s\"", fileInfo.fileName.c_str());
 				}
 				++filesFound;
 			}
@@ -2120,9 +2114,7 @@ OutputBuffer *RepRap::GetFilelistResponse(const char *dir, unsigned int startAt)
 		return nullptr;
 	}
 
-	response->copy("{\"dir\":");
-	response->EncodeString(dir, false);
-	response->catf(",\"first\":%u,\"files\":[", startAt);
+	response->printf("{\"dir\":\"%.s\",\"first\":%u,\"files\":[", dir, startAt);
 	unsigned int err;
 	unsigned int nextFile = 0;
 
@@ -2164,10 +2156,8 @@ OutputBuffer *RepRap::GetFilelistResponse(const char *dir, unsigned int startAt)
 					}
 
 					// Write another file entry
-					bytesLeft -= response->catf("{\"type\":\"%c\",\"name\":", fileInfo.isDirectory ? 'd' : 'f');
-					bytesLeft -= response->EncodeString(fileInfo.fileName, false);
-					bytesLeft -= response->catf(",\"size\":%" PRIu32, fileInfo.size);
-
+					bytesLeft -= response->catf("{\"type\":\"%c\",\"name\":\"%.s\",\"size\":%" PRIu32,
+												fileInfo.isDirectory ? 'd' : 'f', fileInfo.fileName.c_str(), fileInfo.size);
 					tm timeInfo;
 					gmtime_r(&fileInfo.lastModified, &timeInfo);
 					if (timeInfo.tm_year <= /*19*/80)
@@ -2207,7 +2197,8 @@ OutputBuffer *RepRap::GetFilelistResponse(const char *dir, unsigned int startAt)
 #endif
 
 // Get information for the specified file, or the currently printing file (if 'filename' is null or empty), in JSON format
-bool RepRap::GetFileInfoResponse(const char *filename, OutputBuffer *&response, bool quitEarly) noexcept
+// Return GCodeResult::Wating if the file doesn't exist, else GCodeResult::ok or GCodeResult::notFinished
+GCodeResult RepRap::GetFileInfoResponse(const char *filename, OutputBuffer *&response, bool quitEarly) noexcept
 {
 	const bool specificFile = (filename != nullptr && filename[0] != 0);
 	GCodeFileInfo info;
@@ -2220,23 +2211,23 @@ bool RepRap::GetFileInfoResponse(const char *filename, OutputBuffer *&response, 
 		{
 			info.isValid = false;
 		}
-		else if (!MassStorage::GetFileInfo(filePath.c_str(), info, quitEarly))
+		else if (MassStorage::GetFileInfo(filePath.c_str(), info, quitEarly) == GCodeResult::notFinished)
 		{
 			// This may take a few runs...
-			return false;
+			return GCodeResult::notFinished;
 		}
 #else
-		return false;
+		return GCodeResult::notFinished;
 #endif
 	}
 	else if (!printMonitor->GetPrintingFileInfo(info))
 	{
-		return false;
+		return GCodeResult::notFinished;
 	}
 
 	if (!OutputBuffer::Allocate(response))
 	{
-		return false;
+		return GCodeResult::notFinished;
 	}
 
 	if (info.isValid)
@@ -2279,19 +2270,15 @@ bool RepRap::GetFileInfoResponse(const char *filename, OutputBuffer *&response, 
 
 		if (!specificFile)
 		{
-			response->catf(",\"printDuration\":%d,\"fileName\":", (int)printMonitor->GetPrintDuration());
-			response->EncodeString(printMonitor->GetPrintingFilename(), false);
+			response->catf(",\"printDuration\":%d,\"fileName\":\"%.s\"", (int)printMonitor->GetPrintDuration(), printMonitor->GetPrintingFilename());
 		}
 
-		response->cat(",\"generatedBy\":");
-		response->EncodeString(info.generatedBy, false);
-		response->cat('}');
+		response->catf(",\"generatedBy\":\"%.s\"}\n", info.generatedBy.c_str());
+		return GCodeResult::ok;
 	}
-	else
-	{
-		response->copy("{\"err\":1}");
-	}
-	return true;
+
+	response->copy("{\"err\":1}\n");
+	return GCodeResult::warning;
 }
 
 // Helper functions to write JSON arrays
@@ -2345,7 +2332,7 @@ void RepRap::AppendStringArray(OutputBuffer *buf, const char *name, size_t numVa
 		{
 			buf->cat(',');
 		}
-		buf->EncodeString(func(i), true);
+		buf->catf("\"%.s\"", func(i));
 	}
 	buf->cat(']');
 }
@@ -2362,10 +2349,7 @@ OutputBuffer *RepRap::GetModelResponse(const char *key, const char *flags) const
 		if (key == nullptr) { key = ""; }
 		if (flags == nullptr) { flags = ""; }
 
-		outBuf->printf("{\"key\":");
-		outBuf->EncodeString(key, false);
-		outBuf->catf(",\"flags\":");
-		outBuf->EncodeString(flags, false);
+		outBuf->printf("{\"key\":\"%.s\",\"flags\":\"%.s\"", key, flags);
 
 		const bool wantArrayLength = (*key == '#');
 		if (wantArrayLength)

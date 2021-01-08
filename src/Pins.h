@@ -60,11 +60,15 @@
 # define SUPPORT_12864_LCD		0
 #endif
 
-#ifndef SUPPORT_DOTSTAR_LED
-# define SUPPORT_DOTSTAR_LED	0
+#ifndef SUPPORT_LED_STRIPS
+# define SUPPORT_LED_STRIPS		0
 #endif
 
 #define HAS_AUX_DEVICES			(defined(SERIAL_AUX_DEVICE))		// if SERIAL_AUX_DEVICE is defined then we have one or more aux devices
+
+#ifndef ALLOW_ARBITRARY_PANELDUE_PORT
+# define ALLOW_ARBITRARY_PANELDUE_PORT (0)
+#endif
 
 #ifndef USE_CACHE
 # define USE_CACHE				0
@@ -166,6 +170,21 @@
 
 #ifndef HAS_MASS_STORAGE
 # define HAS_MASS_STORAGE		1
+#endif
+
+#if !HAS_MASS_STORAGE && !HAS_LINUX_INTERFACE
+# if SUPPORT_12864_LCD
+#  error "12864 LCD support requires mass storage or SBC interface"
+# endif
+#endif
+
+#if !HAS_MASS_STORAGE
+# if SUPPORT_FTP
+#  error "FTP support requires mass storage"
+# endif
+# if SUPPORT_SCANNER
+#  error "Scanner support requires mass storage"
+# endif
 #endif
 
 #ifndef SUPPORT_ASYNC_MOVES
