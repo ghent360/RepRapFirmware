@@ -148,8 +148,8 @@ constexpr PinEntry PinTable_FLY_E3[] =
 	{PA_10, PinCapability::rwpwm, "RX1"},
 
     // WIFI UART	
-	{PB_10, PinCapability::rwpwm, "PB10"},
-	{PB_11, PinCapability::rwpwm, "PB11"},	
+	{PD_8, PinCapability::rwpwm, "PD8"},
+	{PD_9, PinCapability::rwpwm, "PD9"},	
 	
     //WIFI
     {PE_13, PinCapability::rwpwm, "PE13"},
@@ -188,7 +188,7 @@ constexpr BoardDefaults fly_e3_Defaults = {
     {PC_13, PE_3, PB_9, PB_3},	    //stepPins
     {PC_14, PE_4, PE_0, PB_4},    	//dirPins
 #if TMC_SOFT_UART
-    {PE_6, PE_2, PD_5, PD_7},             
+    {PE_6, PE_2, PB_8, PD_7},             
 	 4, 			                         //uartPins                                          	// Smart drivers
 #endif
     0  
