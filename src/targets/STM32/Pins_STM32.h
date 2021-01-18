@@ -74,7 +74,7 @@
 
 #elif defined(ESP8266WIFI)
     #define HAS_RTOSPLUSTCP_NETWORKING   0
-    #define SUPPORT_12864_LCD            0
+    #define SUPPORT_12864_LCD            1
     #define HAS_WIFI_NETWORKING          1
     #define HAS_MASS_STORAGE             1
     #define SUPPORT_TELNET               0
@@ -84,7 +84,7 @@
 
 #elif defined(LPC_SBC)
     #define HAS_RTOSPLUSTCP_NETWORKING   0
-    #define SUPPORT_12864_LCD            0
+    #define SUPPORT_12864_LCD            1
     #define HAS_WIFI_NETWORKING          0
     #define HAS_MASS_STORAGE             0
     #define HAS_LINUX_INTERFACE          1
@@ -95,7 +95,7 @@
 
 #else
     #define HAS_RTOSPLUSTCP_NETWORKING   0
-    #define SUPPORT_12864_LCD            0
+    #define SUPPORT_12864_LCD            1
     #define HAS_WIFI_NETWORKING          0
     #define HAS_MASS_STORAGE             1
     #define SUPPORT_TELNET               0
@@ -333,7 +333,7 @@ struct PinEntry
 };
 
 extern PinEntry *PinTable;
-
+extern size_t NumNamedLPCPins;
 
 
 bool LookupPinName(const char *pn, LogicalPin& lpin, bool& hardwareInverted) noexcept;
