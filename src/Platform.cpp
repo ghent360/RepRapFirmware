@@ -1074,7 +1074,7 @@ bool Platform::FlushMessages() noexcept
 		else
 		{
 			// Write as much data as we can...
-			const size_t bytesToWrite = min<size_t>(SERIAL_MAIN_DEVICE.canWrite(), usbOutputBuffer->BytesLeft());
+			const size_t bytesToWrite = min<size_t>(SERIAL_MAIN_DEVICE.availableForWrite(), usbOutputBuffer->BytesLeft());
 			if (bytesToWrite != 0)
 			{
 				SERIAL_MAIN_DEVICE.write(usbOutputBuffer->Read(bytesToWrite), bytesToWrite);
@@ -3526,7 +3526,7 @@ void Platform::DebugMessage(const char *fmt, va_list vargs) noexcept
 					{
 						while (SERIAL_MAIN_DEVICE.IsConnected() && !reprap.SpinTimeoutImminent())
 						{
-							if (SERIAL_MAIN_DEVICE.canWrite() != 0)
+							if (SERIAL_MAIN_DEVICE.availableForWrite() != 0)
 							{
 								SERIAL_MAIN_DEVICE.write(c);
 								return true;

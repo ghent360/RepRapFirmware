@@ -132,7 +132,7 @@ bool AuxDevice::Flush() noexcept
 		}
 		else
 		{
-			const size_t bytesToWrite = min<size_t>(uart->canWrite(), auxOutputBuffer->BytesLeft());
+			const size_t bytesToWrite = min<size_t>(uart->availableForWrite(), auxOutputBuffer->BytesLeft());
 			if (bytesToWrite > 0)
 			{
 				uart->write(auxOutputBuffer->Read(bytesToWrite), bytesToWrite);

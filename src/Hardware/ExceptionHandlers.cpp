@@ -38,15 +38,15 @@
 	{
 		if (initialReason != SoftwareResetReason::user)
 		{
-			if (SERIAL_MAIN_DEVICE.canWrite() == 0)
+			if (SERIAL_MAIN_DEVICE.availableForWrite() == 0)
 			{
 				fullReason |= (uint16_t)SoftwareResetReason::inUsbOutput;	// if we are resetting because we are stuck in a Spin function, record whether we are trying to send to USB
 			}
 
 #if HAS_AUX_DEVICES
-			if (SERIAL_AUX_DEVICE.canWrite() == 0
+			if (SERIAL_AUX_DEVICE.availableForWrite() == 0
 # ifdef SERIAL_AUX2_DEVICE
-				|| SERIAL_AUX2_DEVICE.canWrite() == 0
+				|| SERIAL_AUX2_DEVICE.availableForWrite() == 0
 # endif
 			   )
 			{
