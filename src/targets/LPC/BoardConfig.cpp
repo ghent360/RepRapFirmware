@@ -11,7 +11,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdint.h>
-
+#include "Version.h"
 #include "BoardConfig.h"
 #include "RepRapFirmware.h"
 #include "GCodes/GCodeResult.h"
@@ -160,7 +160,46 @@ static inline bool isSpaceOrTab(char c) noexcept
 {
     return (c == ' ' || c == '\t');
 }
-    
+
+
+static void ConfigureGPIOPins() noexcept
+{
+    // loop through and set and pins that have special requirements from the board settings
+    for (size_t lp = 0; lp < NumNamedLPCPins; ++lp)
+    {
+        switch (PinTable[lp].names[0])
+        {
+            case '+':
+                pinMode(PinTable[lp].pin, OUTPUT_HIGH);
+                break;
+            case '-':
+                pinMode(PinTable[lp].pin, OUTPUT_LOW);
+                break;
+            case '^':
+                pinMode(PinTable[lp].pin, INPUT_PULLUP);
+                break;
+            default:
+                break;
+        }
+    }
+    // Handle special cases
+    //Init pins for LCD
+    //make sure to init ButtonPin as input incase user presses button
+    if(PanelButtonPin != NoPin) pinMode(PanelButtonPin, INPUT); //unused
+    if(LcdA0Pin != NoPin) pinMode(LcdA0Pin, OUTPUT_HIGH); //unused
+    if(LcdBeepPin != NoPin) pinMode(LcdBeepPin, OUTPUT_LOW);
+    // Set the 12864 display CS pin low to prevent it from receiving garbage due to other SPI traffic
+    if(LcdCSPin != NoPin) pinMode(LcdCSPin, OUTPUT_LOW);
+
+    //Init Diagnostcs Pin
+    pinMode(DiagPin, OUTPUT_LOW);
+
+    // Configure ATX power control
+    if (ATX_POWER_PIN != NoPin)
+        pinMode(ATX_POWER_PIN, (ATX_INITIAL_POWER_ON ^ ATX_POWER_INVERTED ? OUTPUT_HIGH : OUTPUT_LOW));
+}
+
+
 BoardConfig::BoardConfig() noexcept
 {
     
@@ -278,62 +317,48 @@ void BoardConfig::Init() noexcept
             sd_mmc_reinit_slot(1, SdSpiCSPins[1], ExternalSDCardFrequency);
         }
     #endif    
-        #if HAS_WIFI_NETWORKING
-            if(SamCsPin != NoPin) pinMode(SamCsPin, OUTPUT_LOW);
-            if(EspResetPin != NoPin) pinMode(EspResetPin, OUTPUT_LOW);
-            
-            if(WifiSerialRxTxPins[0] != NoPin && WifiSerialRxTxPins[1] != NoPin)
-            {
-                //Setup the Serial Port for ESP Wifi
-                APIN_Serial1_RXD = WifiSerialRxTxPins[0];
-                APIN_Serial1_TXD = WifiSerialRxTxPins[1];
-                
-                if(!SERIAL_WIFI_DEVICE.Configure(WifiSerialRxTxPins[0], WifiSerialRxTxPins[1]))
-                {
-                    reprap.GetPlatform().MessageF(UsbMessage, "Failed to set WIFI Serial with pins %d.%d and %d.%d.\n", (WifiSerialRxTxPins[0] >> 5), (WifiSerialRxTxPins[0] & 0x1F), (WifiSerialRxTxPins[1] >> 5), (WifiSerialRxTxPins[1] & 0x1F) );
-                }
-            }
-        #endif
-
-        #if defined(SERIAL_AUX_DEVICE)
-            //Configure Aux Serial
-            if(AuxSerialRxTxPins[0] != NoPin && AuxSerialRxTxPins[1] != NoPin)
-            {
-                if(!SERIAL_AUX_DEVICE.Configure(AuxSerialRxTxPins[0], AuxSerialRxTxPins[1]))
-                {
-                    reprap.GetPlatform().MessageF(UsbMessage, "Failed to set AUX Serial with pins %d.%d and %d.%d.\n", (AuxSerialRxTxPins[0] >> 5), (AuxSerialRxTxPins[0] & 0x1F), (AuxSerialRxTxPins[1] >> 5), (AuxSerialRxTxPins[1] & 0x1F) );
-                }
-
-            }
-        #endif
-
-        #if defined(SERIAL_AUX2_DEVICE)
-            //Configure Aux2 Serial
-            if(Aux2SerialRxTxPins[0] != NoPin && Aux2SerialRxTxPins[1] != NoPin)
-            {
-                if(!SERIAL_AUX2_DEVICE.Configure(Aux2SerialRxTxPins[0], Aux2SerialRxTxPins[1]))
-                {
-                    reprap.GetPlatform().MessageF(UsbMessage, "Failed to set AUX2 Serial with pins %d.%d and %d.%d.\n", (Aux2SerialRxTxPins[0] >> 5), (Aux2SerialRxTxPins[0] & 0x1F), (Aux2SerialRxTxPins[1] >> 5), (Aux2SerialRxTxPins[1] & 0x1F) );
-                }
-
-            }
-        #endif
-
+    #if HAS_WIFI_NETWORKING
+        if(SamCsPin != NoPin) pinMode(SamCsPin, OUTPUT_LOW);
+        if(EspResetPin != NoPin) pinMode(EspResetPin, OUTPUT_LOW);
         
-        //Init pins for LCD
-        //make sure to init ButtonPin as input incase user presses button
-        if(PanelButtonPin != NoPin) pinMode(PanelButtonPin, INPUT); //unused
-        if(LcdA0Pin != NoPin) pinMode(LcdA0Pin, OUTPUT_HIGH); //unused
-        if(LcdBeepPin != NoPin) pinMode(LcdBeepPin, OUTPUT_LOW);
-        // Set the 12864 display CS pin low to prevent it from receiving garbage due to other SPI traffic
-        if(LcdCSPin != NoPin) pinMode(LcdCSPin, OUTPUT_LOW);
+        if(WifiSerialRxTxPins[0] != NoPin && WifiSerialRxTxPins[1] != NoPin)
+        {
+            //Setup the Serial Port for ESP Wifi
+            APIN_Serial1_RXD = WifiSerialRxTxPins[0];
+            APIN_Serial1_TXD = WifiSerialRxTxPins[1];
+            
+            if(!SERIAL_WIFI_DEVICE.Configure(WifiSerialRxTxPins[0], WifiSerialRxTxPins[1]))
+            {
+                reprap.GetPlatform().MessageF(UsbMessage, "Failed to set WIFI Serial with pins %d.%d and %d.%d.\n", (WifiSerialRxTxPins[0] >> 5), (WifiSerialRxTxPins[0] & 0x1F), (WifiSerialRxTxPins[1] >> 5), (WifiSerialRxTxPins[1] & 0x1F) );
+            }
+        }
+    #endif
 
-        //Init Diagnostcs Pin
-        pinMode(DiagPin, OUTPUT_LOW);
+    #if defined(SERIAL_AUX_DEVICE)
+        //Configure Aux Serial
+        if(AuxSerialRxTxPins[0] != NoPin && AuxSerialRxTxPins[1] != NoPin)
+        {
+            if(!SERIAL_AUX_DEVICE.Configure(AuxSerialRxTxPins[0], AuxSerialRxTxPins[1]))
+            {
+                reprap.GetPlatform().MessageF(UsbMessage, "Failed to set AUX Serial with pins %d.%d and %d.%d.\n", (AuxSerialRxTxPins[0] >> 5), (AuxSerialRxTxPins[0] & 0x1F), (AuxSerialRxTxPins[1] >> 5), (AuxSerialRxTxPins[1] & 0x1F) );
+            }
 
-        // Configure ATX power control
-        if (ATX_POWER_PIN != NoPin)
-            pinMode(ATX_POWER_PIN, (ATX_INITIAL_POWER_ON ^ ATX_POWER_INVERTED ? OUTPUT_HIGH : OUTPUT_LOW));
+        }
+    #endif
+
+    #if defined(SERIAL_AUX2_DEVICE)
+        //Configure Aux2 Serial
+        if(Aux2SerialRxTxPins[0] != NoPin && Aux2SerialRxTxPins[1] != NoPin)
+        {
+            if(!SERIAL_AUX2_DEVICE.Configure(Aux2SerialRxTxPins[0], Aux2SerialRxTxPins[1]))
+            {
+                reprap.GetPlatform().MessageF(UsbMessage, "Failed to set AUX2 Serial with pins %d.%d and %d.%d.\n", (Aux2SerialRxTxPins[0] >> 5), (Aux2SerialRxTxPins[0] & 0x1F), (Aux2SerialRxTxPins[1] >> 5), (Aux2SerialRxTxPins[1] & 0x1F) );
+            }
+
+        }
+    #endif
+
+        ConfigureGPIOPins();
     
         //Configure ADC pre filter
         ConfigureADCPreFilter(ADCEnablePreFilter);
@@ -438,7 +463,25 @@ void BoardConfig::PrintValue(MessageType mtype, configValueType configType, void
 //Information printed by M122 P200
 void BoardConfig::Diagnostics(MessageType mtype) noexcept
 {
-    reprap.GetPlatform().MessageF(mtype, "== Configurable Board.txt Settings ==\n");
+#ifdef DUET_NG
+# if HAS_LINUX_INTERFACE
+	reprap.GetPlatform().MessageF(mtype, "%s version %s running on %s (%s mode)", FIRMWARE_NAME, VERSION, reprap.GetPlatform().GetElectronicsString(),
+						(reprap.UsingLinuxInterface()) ? "SBC" : "standalone");
+# else
+	reprap.GetPlatform().MessageF(mtype, "%s version %s running on %s", FIRMWARE_NAME, VERSION, reprap.GetPlatform().GetElectronicsString());
+# endif
+	const char* const expansionName = DuetExpansion::GetExpansionBoardName();
+	reprap.GetPlatform().MessageF(mtype, (expansionName == nullptr) ? "\n" : " + %s\n", expansionName);
+#elif __LPC17xx__
+	reprap.GetPlatform().MessageF(mtype, "%s (%s) version %s running on %s at %dMhz\n", FIRMWARE_NAME, lpcBoardName, VERSION, reprap.GetPlatform().GetElectronicsString(), (int)SystemCoreClock/1000000);
+#elif HAS_LINUX_INTERFACE
+	reprap.GetPlatform().MessageF(mtype, "%s version %s running on %s (%s mode)\n", FIRMWARE_NAME, VERSION, reprap.GetPlatform().GetElectronicsString(),
+						(reprap.UsingLinuxInterface()) ? "SBC" : "standalone");
+#else
+	reprap.GetPlatform().MessageF(mtype, "%s version %s running on %s\n", FIRMWARE_NAME, VERSION, reprap.GetPlatform().GetElectronicsString());
+#endif
+
+    reprap.GetPlatform().MessageF(mtype, "\n== Configurable Board.txt Settings ==\n");
 
     //Print the board name
     boardConfigEntry_t board = boardEntryConfig[1];
@@ -641,7 +684,7 @@ bool BoardConfig::GetConfigKeys(FIL *configFile, const boardConfigEntry_t *board
     {
         size_t len = (size_t) readLen;
         size_t pos = 0;
-        while(pos < len && isSpaceOrTab(line[pos] && line[pos] != 0) == true) pos++; //eat leading whitespace
+        while(pos < len && line[pos] != 0 && isSpaceOrTab(line[pos])) pos++; //eat leading whitespace
 
         if(pos < len){
 
