@@ -15,12 +15,12 @@
 #include <RTOSIface/RTOSIface.h>
 #include <ObjectModel/ObjectModel.h>
 #include <General/NamedEnum.h>
-#if (__LPC17xx__ || STM32F4) && (HAS_WIFI_NETWORKING == 0) && (HAS_RTOSPLUSTCP_NETWORKING == 0)
+#if (__LPC17xx__ || STM32F4 || STM32F7) && (HAS_WIFI_NETWORKING == 0) && (HAS_RTOSPLUSTCP_NETWORKING == 0)
 # include "targets/common/NoNetwork/Network.h"
 #else
 #if defined(DUET3_V03)
 const size_t NumNetworkInterfaces = 2;
-#elif defined(DUET3_V06) || defined(DUET_NG) || defined(DUET_M) || defined(__LPC17xx__) || defined(STM32F4) || defined(PCCB) || defined(DUET3MINI)
+#elif defined(DUET3_V06) || defined(DUET_NG) || defined(DUET_M) || defined(__LPC17xx__) || defined(STM32F4) || defined(STM32F7) || defined(PCCB) || defined(DUET3MINI)
 const size_t NumNetworkInterfaces = 1;
 #else
 # error Wrong Network.h file included

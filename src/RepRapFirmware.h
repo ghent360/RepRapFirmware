@@ -543,7 +543,7 @@ const NvicPriority NvicPriorityTimerServo = 5;
 #  else
     const NvicPriority NvicPriorityDMA = NvicPriorityADC;
 #  endif
-#elif STM32F4
+#elif STM32F4 || STM32F7
 const NvicPriority NvicPriorityWatchdog = 0;		// the secondary watchdog has the highest priority
 const NvicPriority NvicPriorityDriversSerialTMC = 1;// STM uses a software UART, make this a very high priority
 const NvicPriority NvicPriorityTimerPWM = 2;		// Run PWM timing as high as we can to avoid jitter

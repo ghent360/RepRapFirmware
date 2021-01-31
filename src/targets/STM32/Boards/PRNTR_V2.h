@@ -11,6 +11,7 @@
 
 constexpr PinEntry PinTable_PRNTR_V2[] =
 {
+#ifdef STM32F4    
     //Thermistors
     {PA0, PinCapability::ainrw, "e0temp,t0"},
     {PA1, PinCapability::ainrw, "e1temp,t1"},
@@ -95,9 +96,11 @@ constexpr PinEntry PinTable_PRNTR_V2[] =
 	{PD6, PinCapability::rw, "serial1-rx,PD6"},
     {PB10, PinCapability::rw, "st-uart1,PB10"},
     {PC6, PinCapability::rw, "st-uart2,PC6"},
+#endif // STM32F4    
 };
 
 constexpr BoardDefaults prntr_v2_Defaults = {
+#ifdef STM32F4    
 	6,											// Number of drivers
     {PC0, PC0, PC0, PC0, PC0, PC0},   	//enablePins
     {PE0, PB5, PD7, PD4, PD1, PD0},	    //stepPins
@@ -107,6 +110,7 @@ constexpr BoardDefaults prntr_v2_Defaults = {
     6,                                      	// Smart drivers
 #endif
     0                                       	//digiPot Factor
+#endif    
 };
 
 #endif // PRNTR_VE_H

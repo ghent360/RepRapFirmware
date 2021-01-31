@@ -54,7 +54,7 @@ constexpr Pin APIN_ESP_SPI_MISO = EspMisoPin;
 constexpr Pin APIN_ESP_SPI_SCK = EspSclkPin;
 constexpr IRQn ESP_SPI_IRQn = WiFiSpiSercomIRQn;
 
-#elif __LPC17xx__ || STM32F4
+#elif __LPC17xx__ || STM32F4 || STM32F7
 
 # define USE_PDC            0		// use SAM4 peripheral DMA controller
 # define USE_DMAC           0		// use SAM4 general DMA controller
@@ -78,7 +78,7 @@ constexpr IRQn ESP_SPI_IRQn = WiFiSpiSercomIRQn;
 #endif
 
 #if SAME5x
-#elif !__LPC17xx__ && !STM32F4
+#elif !__LPC17xx__ && !STM32F4 && !STM32F7
 # include "matrix/matrix.h"
 #endif
 
@@ -89,7 +89,7 @@ const uint32_t WiFiStableMillis = 100;
 
 const unsigned int MaxHttpConnections = 4;
 
-#if !__LPC17xx__ && !STM32F4
+#if !__LPC17xx__ && !STM32F4 && !STM32F7
 // Forward declarations of static functions
 #if SAME5x
 
@@ -208,7 +208,7 @@ static void debugPrintBuffer(const char *msg, void *buf, size_t dataLength) noex
 }
 #endif
 
-#if __LPC17xx__ || STM32F4
+#if __LPC17xx__ || STM32F4 || STM32F7
 # include "WiFiInterface.hpp"
 #endif
 
@@ -581,7 +581,7 @@ void WiFiInterface::Stop() noexcept
 		digitalWrite(EspEnablePin, false);
 #endif
 		DisableEspInterrupt();						// ignore IRQs from the transfer request pin
-#if !defined(STM32F4)
+#if !defined(STM32F4) && !defined(STM32F7)
 		NVIC_DisableIRQ(ESP_SPI_IRQn); // Shouldn't DisableSpi do this?
 #endif
 		DisableSpi();
@@ -1343,7 +1343,7 @@ void WiFiInterface::TerminateDataPort() noexcept
 	}
 }
 
-#if !__LPC17xx__ && !STM32F4
+#if !__LPC17xx__ && !STM32F4 && !STM32F7
 
 #if USE_PDC
 static Pdc *spi_pdc;
@@ -1780,7 +1780,7 @@ int32_t WiFiInterface::SendCommand(NetworkCommand cmd, SocketNumber socketNum, u
 	WiFiSpiSercom->SPI.INTFLAG.reg = 0xFF;		// clear any pending interrupts
 	WiFiSpiSercom->SPI.INTENSET.reg = SERCOM_SPI_INTENSET_SSL;	// enable the start of transfer (SS low) interrupt
 	EnableSpi();
-#elif __LPC17xx__ || STM32F4
+#elif __LPC17xx__ || STM32F4 || STM32F7
     spi_slave_dma_setup(dataOutLength, dataInLength);
 #else
     // DMA may have transferred an extra word to the SPI transmit data register. We need to clear this.
@@ -1937,7 +1937,7 @@ void WiFiInterface::GetNewStatus() noexcept
 	}
 }
 
-#if !__LPC17xx__ && !STM32F4
+#if !__LPC17xx__ && !STM32F4 && !STM32F7
 
 # ifndef ESP_SPI_HANDLER
 #  error ESP_SPI_HANDLER not defined
@@ -2008,7 +2008,7 @@ void WiFiInterface::StartWiFi() noexcept
 	delayMicroseconds(150);										// ESP8266 datasheet specifies minimum 100us from releasing reset to power up
 	digitalWrite(EspEnablePin, true);
 #endif
-#if __LPC17xx__ || STM32F4
+#if __LPC17xx__ || STM32F4 || STM32F7
     SERIAL_WIFI_DEVICE.Configure(WifiSerialRxTxPins[0], WifiSerialRxTxPins[1]);
 #else
 #if !SAME5x
@@ -2089,7 +2089,7 @@ void WiFiInterface::ResetWiFiForUpload(bool external) noexcept
 	}
 	else
 	{
-#if __LPC17xx__ || STM32F4
+#if __LPC17xx__ || STM32F4 || STM32F7
         SERIAL_WIFI_DEVICE.Configure(WifiSerialRxTxPins[0], WifiSerialRxTxPins[1]);
 #elif !SAME5x
 		ConfigurePin(g_APinDescription[APINS_Serial1]);				// connect the pins to the UART

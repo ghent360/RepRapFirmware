@@ -41,6 +41,7 @@ static void MX_DMA_Init(void) {
 
 static void MX_SDIO_Init(void) {
   /* HAL SD initialization */
+#if defined(STM32F4)  
   hsd.Instance = SDIO;
   hsd.Init.ClockEdge = SDIO_CLOCK_EDGE_RISING;
   hsd.Init.ClockBypass = SDIO_CLOCK_BYPASS_DISABLE;
@@ -48,6 +49,17 @@ static void MX_SDIO_Init(void) {
   hsd.Init.BusWide = SDIO_BUS_WIDE_1B;
   hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
   hsd.Init.ClockDiv = 0;
+#elif defined(STM32F7)  
+  hsd.Instance = SDMMC1;
+  hsd.Init.ClockEdge = SDMMC_CLOCK_EDGE_RISING;
+  hsd.Init.ClockBypass = SDMMC_CLOCK_BYPASS_DISABLE;
+  hsd.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_DISABLE;
+  hsd.Init.BusWide = SDMMC_BUS_WIDE_1B;
+  hsd.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
+  hsd.Init.ClockDiv = 0;
+#else
+#error "Architecture not supported"
+#endif
 }
 
 /**
@@ -248,6 +260,7 @@ uint8_t	BSP_PlatformIsDetected(void) {
 }
 
 void HAL_SD_MspInit(SD_HandleTypeDef* hsd) {
+#if defined(STM32F4)
   GPIO_InitTypeDef GPIO_InitStruct = {0};
   if(hsd->Instance==SDIO) {
     /* Peripheral clock enable */
@@ -319,6 +332,10 @@ void HAL_SD_MspInit(SD_HandleTypeDef* hsd) {
 
     __HAL_LINKDMA(hsd,hdmatx,hdma_sdio_tx);
   }
+#elif defined(STM32F7)  
+#else
+#error "Architecture not supported"
+#endif
 }
 
 /**
@@ -328,6 +345,7 @@ void HAL_SD_MspInit(SD_HandleTypeDef* hsd) {
 * @retval None
 */
 void HAL_SD_MspDeInit(SD_HandleTypeDef* hsd) {
+#if defined(STM32F4)  
   if(hsd->Instance==SDIO) {
     /* Peripheral clock disable */
     __HAL_RCC_SDIO_CLK_DISABLE();
@@ -349,6 +367,10 @@ void HAL_SD_MspDeInit(SD_HandleTypeDef* hsd) {
     HAL_DMA_DeInit(hsd->hdmarx);
     HAL_DMA_DeInit(hsd->hdmatx);
   }
+#elif defined(STM32F7)  
+#else
+#error "Architecture not supported"
+#endif
 }
 
 void DMA2_Stream3_IRQHandler(void) {
@@ -358,5 +380,3 @@ void DMA2_Stream3_IRQHandler(void) {
 void DMA2_Stream6_IRQHandler(void) {
   HAL_DMA_IRQHandler(&hdma_sdio_tx);
 }
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

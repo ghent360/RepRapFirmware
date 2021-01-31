@@ -15,7 +15,7 @@
   *
   ******************************************************************************
   */
-
+#ifdef STM32F4
 #include "sd_diskio.h"
 
 #include <string.h>
@@ -619,4 +619,4 @@ void BSP_SD_AbortCallback(void) {
    osMessagePut(SDQueueID, RW_ABORT_MSG, 0);
 }
 
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+#endif // STM32F4

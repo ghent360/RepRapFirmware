@@ -606,7 +606,7 @@ void WifiFirmwareUploader::Spin() noexcept
 				// First attempt at this baud rate
 				MessageF("Trying to connect at %u baud: ", baud);
 			}
-#if __LPC17XX__ || STM32F4
+#if __LPC17XX__ || STM32F4 || STM32F7
 			// ResetWiFiForUpload calls uploadPort.end() I'm not sure that it makes sense to call uploadPort.begin before this. On 
 			// LPC and STM32 it does not work very well as the port is in effect closed on the first write attempt. So we reverse the order.
 			interface.ResetWiFiForUpload(false);

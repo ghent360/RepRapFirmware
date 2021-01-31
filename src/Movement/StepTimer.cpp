@@ -13,7 +13,7 @@
 # ifdef LPC_DEBUG
 int lateTimers = 0;
 # endif
-#elif STM32F4
+#elif STM32F4 || STM32F7
 HardwareTimer STimer(STEP_TC);
 TIM_HandleTypeDef *STHandle;
 extern "C" void STEP_TC_HANDLER() noexcept __attribute__ ((hot));
@@ -75,7 +75,7 @@ void StepTimer::Init() noexcept
 	NVIC_SetPriority(STEP_TC_IRQN, NvicPriorityStep);			    // Set the priority for this IRQ
 	NVIC_EnableIRQ(STEP_TC_IRQN);
 	STEP_TC->TCR = (1 <<SBIT_CNTEN);							    // Start Timer
-#elif STM32F4
+#elif STM32F4 || STM32F7
 	uint32_t preScale = STimer.getTimerClkFreq()/StepClockRate;
 	debugPrintf("ST base freq %d setting presacle %d\n", static_cast<int>(STimer.getTimerClkFreq()), static_cast<int>(preScale));
 	STimer.setPrescaleFactor(preScale);
@@ -191,7 +191,7 @@ bool StepTimer::ScheduleTimerInterrupt(uint32_t tim) noexcept
 	if ((int)(STEP_TC->MR[0] - GetTimerTicks()) <= 0)
 		lateTimers++;
 # endif
-#elif STM32F4
+#elif STM32F4 || STM32F7
 	__HAL_TIM_SET_COMPARE(STHandle, TIM_CHANNEL_1, tim);
 	__HAL_TIM_ENABLE_IT(STHandle, TIM_IT_CC1);
 #else
@@ -209,7 +209,7 @@ void StepTimer::DisableTimerInterrupt() noexcept
 	StepTc->INTENCLR.reg = TC_INTFLAG_MC0;
 #elif __LPC17xx__
 	STEP_TC->MCR &= ~(1u<<SBIT_MR0I);								 // disable Int on MR1
-#elif STM32F4
+#elif STM32F4 || STM32F7
 	__HAL_TIM_DISABLE_IT(STHandle, TIM_IT_CC1);STimer.setCaptureCompare(1, 1000, TICK_COMPARE_FORMAT);
 #else
 	STEP_TC->TC_CHANNEL[STEP_TC_CHAN].TC_IDR = TC_IER_CPBS;
@@ -263,7 +263,7 @@ void STEP_TC_HANDLER() noexcept
 	{
 		STEP_TC->IR |= (1u<<SBIT_MRI0_IFM);							// clear interrupt
 		STEP_TC->MCR  &= ~(1u<<SBIT_MR0I);							// Disable Int on MR0
-#elif STM32F4
+#elif STM32F4 || STM32F7
 	__HAL_TIM_DISABLE_IT(STHandle, TIM_IT_CC1);STimer.setCaptureCompare(1, 1000, TICK_COMPARE_FORMAT);
 	{
 #else

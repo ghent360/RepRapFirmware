@@ -158,7 +158,7 @@ void IoPort::Release() noexcept
 		{
 			ReleasePWMPin(GetPinNoCheck());
 		}
-#elif STM32F4
+#elif STM32F4 || STM32F7
 		if (logicalPinModes[logicalPin] == OUTPUT_PWM_HIGH || logicalPinModes[logicalPin] == OUTPUT_PWM_LOW)
 		{
 			ReleasePWMPin(GetPinNoCheck());

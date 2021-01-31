@@ -25,7 +25,13 @@
  extern "C" {
 #endif
 
+#if defined(STM32F4xx)
 #include "stm32f4xx_hal.h"
+#elif defined STM32F7xx
+#include "stm32f7xx_hal.h"
+#else
+#error "Architecture is not supported"
+#endif
 
 #define SD_PRESENT               ((uint8_t)0x01)  /* also in bsp_driver_sd.h */
 #define SD_NOT_PRESENT           ((uint8_t)0x00)  /* also in bsp_driver_sd.h */

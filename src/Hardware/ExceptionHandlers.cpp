@@ -16,7 +16,7 @@
 {
 	cpu_irq_disable();							// disable interrupts before we call any flash functions. We don't enable them again.
 	WatchdogReset();							// kick the watchdog
-#if STM32F4
+#if STM32F4 || STM32F7
 	WatchdogDisable();
 #endif
 #if SAM4E || SAME70
@@ -69,7 +69,7 @@
 
 #if __LPC17xx__
     LPC_SYSCTL->RSID = 0x3F;					// Clear bits in reset reasons stored in RSID
-#elif STM32F4
+#elif STM32F4 || STM32F7
 	// FIXME add any STM specific code here
 #elif !SAME5x
 	RSTC->RSTC_MR = RSTC_MR_KEY_PASSWD;			// ignore any signal on the NRST pin for now so that the reset reason will show as Software
@@ -146,7 +146,7 @@ extern "C" [[noreturn]] void WDT_IRQHandler() noexcept __attribute__((naked));
 void WDT_IRQHandler() noexcept
 {
 	LPC_WWDT->MOD &=~((uint32_t)(1<<2)); //SD::clear timout flag before resetting to prevent the Smoothie bootloader going into DFU mode
-#elif STM32F4
+#elif STM32F4 || STM32F7
 extern "C" [[noreturn]] void WWDG_IRQHandler() noexcept __attribute__((naked));
 void WWDG_IRQHandler() noexcept
 {

@@ -40,14 +40,14 @@
 #if TMC_SOFT_UART
 #include "TMCSoftUART.h"
 #else
-#ifdef STM32F4
+#if defined(STM32F4) || defined(STM32F7)
 #else
 #include "sam/drivers/pdc/pdc.h"
 #include "sam/drivers/uart/uart.h"
 #ifndef TMC22xx_HAS_MUX
 # error TMC22xx_HAS_MUX not defined
 #endif
-#endif // STM32F4
+#endif // STM32F4 || STM32F7
 #endif
 
 // Important note:

@@ -118,13 +118,13 @@ typedef uint8_t card_version_t; //!< Type of card version
 /**
  * \brief Initialize the SD/MMC stack and low level driver required
  */
-void sd_mmc_init(const Pin wpPins[], const Pin spiCsPins[]) noexcept;
+void sd_mmc_init(const Pin wpPins[], const Pin spiCsPins[]);
 
 /** \brief Return the number of slot available
  *
  * \return Number of card slot available
  */
-uint8_t sd_mmc_nb_slot(void) noexcept;
+uint8_t sd_mmc_nb_slot(void) ;
 
 /** \brief Performs a card checks
  *
@@ -135,7 +135,7 @@ uint8_t sd_mmc_nb_slot(void) noexcept;
  * \retval SD_MMC_ERR_NO_CARD  Card not present in slot
  * \retval Other value for error cases, see \ref sd_mmc_err_t
  */
-sd_mmc_err_t sd_mmc_check(uint8_t slot) noexcept;
+sd_mmc_err_t sd_mmc_check(uint8_t slot);
 
 /** \brief Get the card type
  *
@@ -143,7 +143,7 @@ sd_mmc_err_t sd_mmc_check(uint8_t slot) noexcept;
  *
  * \return Card type (\ref card_type_t)
  */
-card_type_t sd_mmc_get_type(uint8_t slot) noexcept;
+card_type_t sd_mmc_get_type(uint8_t slot);
 
 /** \brief Get the card version
  *
@@ -151,7 +151,7 @@ card_type_t sd_mmc_get_type(uint8_t slot) noexcept;
  *
  * \return Card version (\ref card_version_t)
  */
-card_version_t sd_mmc_get_version(uint8_t slot) noexcept;
+card_version_t sd_mmc_get_version(uint8_t slot);
 
 /** \brief Get the memory capacity
  *
@@ -159,7 +159,7 @@ card_version_t sd_mmc_get_version(uint8_t slot) noexcept;
  *
  * \return Capacity (unit KB)
  */
-uint32_t sd_mmc_get_capacity(uint8_t slot) noexcept;
+uint32_t sd_mmc_get_capacity(uint8_t slot);
 
 /** \brief Get the card write protection status
  *
@@ -167,15 +167,15 @@ uint32_t sd_mmc_get_capacity(uint8_t slot) noexcept;
  *
  * \return true, if write protected
  */
-bool sd_mmc_is_write_protected(uint8_t slot) noexcept;
+bool sd_mmc_is_write_protected(uint8_t slot);
 
 #if 1		// dc42
 
 // Unmount the card. Must call this to force it to be re-initialised when changing card.
-void sd_mmc_unmount(uint8_t slot) noexcept;
+void sd_mmc_unmount(uint8_t slot) ;
 
 // Get the interface speed in bytes/sec
-uint32_t sd_mmc_get_interface_speed(uint8_t slot) noexcept;
+uint32_t sd_mmc_get_interface_speed(uint8_t slot);
 
 #endif
 
@@ -189,7 +189,7 @@ uint32_t sd_mmc_get_interface_speed(uint8_t slot) noexcept;
  * \return return SD_MMC_OK if success,
  *         otherwise return an error code (\ref sd_mmc_err_t).
  */
-sd_mmc_err_t sd_mmc_init_read_blocks(uint8_t slot, uint32_t start, uint16_t nb_block, void *dmaAddr) noexcept;
+sd_mmc_err_t sd_mmc_init_read_blocks(uint8_t slot, uint32_t start, uint16_t nb_block, void *dmaAddr);
 
 /**
  * \brief Start the read blocks of data from the card.
@@ -200,7 +200,7 @@ sd_mmc_err_t sd_mmc_init_read_blocks(uint8_t slot, uint32_t start, uint16_t nb_b
  * \return return SD_MMC_OK if started,
  *         otherwise return an error code (\ref sd_mmc_err_t).
  */
-sd_mmc_err_t sd_mmc_start_read_blocks(void *dest, uint16_t nb_block) noexcept;
+sd_mmc_err_t sd_mmc_start_read_blocks(void *dest, uint16_t nb_block);
 
 /**
  * \brief Wait the end of read blocks of data from the card.
@@ -212,7 +212,7 @@ sd_mmc_err_t sd_mmc_start_read_blocks(void *dest, uint16_t nb_block) noexcept;
  * \return return SD_MMC_OK if success,
  *         otherwise return an error code (\ref sd_mmc_err_t).
  */
-sd_mmc_err_t sd_mmc_wait_end_of_read_blocks(bool abort) noexcept;
+sd_mmc_err_t sd_mmc_wait_end_of_read_blocks(bool abort);
 
 /**
  * \brief Initialize the write blocks of data
@@ -224,7 +224,7 @@ sd_mmc_err_t sd_mmc_wait_end_of_read_blocks(bool abort) noexcept;
  * \return return SD_MMC_OK if success,
  *         otherwise return an error code (\ref sd_mmc_err_t).
  */
-sd_mmc_err_t sd_mmc_init_write_blocks(uint8_t slot, uint32_t start, uint16_t nb_block, const void *dmaAddr) noexcept;
+sd_mmc_err_t sd_mmc_init_write_blocks(uint8_t slot, uint32_t start, uint16_t nb_block, const void *dmaAddr);
 
 /**
  * \brief Start the write blocks of data
@@ -235,7 +235,7 @@ sd_mmc_err_t sd_mmc_init_write_blocks(uint8_t slot, uint32_t start, uint16_t nb_
  * \return return SD_MMC_OK if started,
  *         otherwise return an error code (\ref sd_mmc_err_t).
  */
-sd_mmc_err_t sd_mmc_start_write_blocks(const void *src, uint16_t nb_block) noexcept;
+sd_mmc_err_t sd_mmc_start_write_blocks(const void *src, uint16_t nb_block);
 
 /**
  * \brief Wait the end of write blocks of data
@@ -247,7 +247,7 @@ sd_mmc_err_t sd_mmc_start_write_blocks(const void *src, uint16_t nb_block) noexc
  * \return return SD_MMC_OK if success,
  *         otherwise return an error code (\ref sd_mmc_err_t).
  */
-sd_mmc_err_t sd_mmc_wait_end_of_write_blocks(bool abort) noexcept;
+sd_mmc_err_t sd_mmc_wait_end_of_write_blocks(bool abort);
 
 #ifdef SDIO_SUPPORT_ENABLE
 /**
@@ -261,7 +261,7 @@ sd_mmc_err_t sd_mmc_wait_end_of_write_blocks(bool abort) noexcept;
  * \return return SD_MMC_OK if success,
  *         otherwise return an error code (\ref sd_mmc_err_t).
  */
-sd_mmc_err_t sdio_read_direct(uint8_t slot, uint8_t func_num, uint32_t addr, uint8_t *dest) noexcept;
+sd_mmc_err_t sdio_read_direct(uint8_t slot, uint8_t func_num, uint32_t addr, uint8_t *dest) ;
 /**
  * \brief Write one byte to SDIO using RW_DIRECT command.
  *
@@ -273,7 +273,7 @@ sd_mmc_err_t sdio_read_direct(uint8_t slot, uint8_t func_num, uint32_t addr, uin
  * \return return SD_MMC_OK if success,
  *         otherwise return an error code (\ref sd_mmc_err_t).
  */
-sd_mmc_err_t sdio_write_direct(uint8_t slot, uint8_t func_num, uint32_t addr, uint8_t data) noexcept;
+sd_mmc_err_t sdio_write_direct(uint8_t slot, uint8_t func_num, uint32_t addr, uint8_t data) ;
 
 /**
  * \brief Read bytes from SDIO using RW_EXTENDED command.
@@ -289,7 +289,7 @@ sd_mmc_err_t sdio_write_direct(uint8_t slot, uint8_t func_num, uint32_t addr, ui
  * \return return SD_MMC_OK if success,
  *         otherwise return an error code (\ref sd_mmc_err_t).
  */
-sd_mmc_err_t sdio_read_extended(uint8_t slot, uint8_t func_num, uint32_t addr, uint8_t inc_addr, uint8_t *dest, uint16_t size) noexcept;
+sd_mmc_err_t sdio_read_extended(uint8_t slot, uint8_t func_num, uint32_t addr, uint8_t inc_addr, uint8_t *dest, uint16_t size) ;
 
 /**
  * \brief Write bytes to SDIO using RW_EXTENDED command.
@@ -305,7 +305,7 @@ sd_mmc_err_t sdio_read_extended(uint8_t slot, uint8_t func_num, uint32_t addr, u
  * \return return SD_MMC_OK if success,
  *         otherwise return an error code (\ref sd_mmc_err_t).
  */
-sd_mmc_err_t sdio_write_extended(uint8_t slot, uint8_t func_num, uint32_t addr, uint8_t inc_addr, uint8_t *src, uint16_t size) noexcept;
+sd_mmc_err_t sdio_write_extended(uint8_t slot, uint8_t func_num, uint32_t addr, uint8_t inc_addr, uint8_t *src, uint16_t size) ;
 #endif // SDIO_SUPPORT_ENABLE
 
 /** @} */

@@ -152,7 +152,7 @@ constexpr unsigned int MaxBlockIndent = 10;				// maximum indentation of GCode. 
 //     Using single-precision maths and up to 9-factor calibration: (9 + 5) * 4 bytes per point
 //     Using double-precision maths and up to 9-factor calibration: (9 + 5) * 8 bytes per point
 //   So 32 points using double precision arithmetic need 3584 bytes of stack space.
-#if SAM4E || SAM4S || SAME70 || SAME5x || STM32F4
+#if SAM4E || SAM4S || SAME70 || SAME5x || STM32F4 || STM32F7
 constexpr size_t MaxGridProbePoints = 441;				// 441 allows us to probe e.g. 400x400 at 20mm intervals
 constexpr size_t MaxXGridPoints = 41;					// Maximum number of grid points in one X row
 constexpr size_t MaxProbePoints = 32;					// Maximum number of G30 probe points
@@ -229,7 +229,7 @@ constexpr size_t MediumStringLength = MaxFilenameLength;
 constexpr size_t StringBufferLength = StringLength256;	// Length of the string buffer used by the expression parser
 constexpr size_t StringLengthLoggedCommand = StringLength100;	// Length of a string buffer for a command to be logged
 
-#if SAM4E || SAM4S || SAME70 || SAME5x || defined(ESP_NETWORKING) || __LPC17xx__ || STM32F4
+#if SAM4E || SAM4S || SAME70 || SAME5x || defined(ESP_NETWORKING) || __LPC17xx__ || STM32F4 || STM32F7
 // Increased GCODE_LENGTH on the SAM4 because M587 and M589 commands on the Duet WiFi can get very long and GCode meta commands can get even longer
 constexpr size_t GCODE_LENGTH = 201;					// maximum number of non-comment characters in a line of GCode including the null terminator
 #else
@@ -259,7 +259,7 @@ constexpr size_t RESERVED_OUTPUT_BUFFERS = 2;			// Number of reserved output buf
 constexpr uint16_t OUTPUT_BUFFER_SIZE = 256;            // How many bytes does each OutputBuffer hold?
 constexpr size_t OUTPUT_BUFFER_COUNT = 16;              // How many OutputBuffer instances do we have?
 constexpr size_t RESERVED_OUTPUT_BUFFERS = 2;           // Number of reserved output buffers after long responses. Must be enough for an HTTP header
-#elif  STM32F4
+#elif  STM32F4 || STM32F7
 constexpr size_t OUTPUT_BUFFER_SIZE = 256;				// How many bytes does each OutputBuffer hold?
 constexpr size_t OUTPUT_BUFFER_COUNT = 40;				// How many OutputBuffer instances do we have?
 constexpr size_t RESERVED_OUTPUT_BUFFERS = 4;			// Number of reserved output buffers after long responses, enough to hold a status response

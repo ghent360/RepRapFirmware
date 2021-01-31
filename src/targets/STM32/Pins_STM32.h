@@ -5,12 +5,19 @@
 #include "sd_mmc.h"
 #include "RepRapFirmware.h"
 #include "NVMEmulation.h"
+#if defined(STM32F4xx)
 #include "stm32f4xx_hal.h"
+#elif defined STM32F7xx
+#include "stm32f7xx_hal.h"
+#else
+#error "Architecture is not supported"
+#endif
 
 #ifndef UNUSED
 #define UNUSED(x) (void)(x)
 #endif
 
+#if defined(STM32F4xx)
 #define FIRMWARE_NAME "RepRapFirmware for STM32F4 based Boards"
 
 // Default board type
@@ -18,6 +25,17 @@
 #define ELECTRONICS "STM32F4"
 #define STM_ELECTRONICS_STRING "STM32F4"
 #define STM_BOARD_STRING "STM32F4"
+#elif defined(STM32F7)
+#define FIRMWARE_NAME "RepRapFirmware for STM32F7 based Boards"
+
+// Default board type
+#define DEFAULT_BOARD_TYPE BoardType::Stm32F4
+#define ELECTRONICS "STM32F7"
+#define STM_ELECTRONICS_STRING "STM32F7"
+#define STM_BOARD_STRING "STM32F7"
+#else
+#error "Architecture not supported"
+#endif
 
 #define FIRMWARE_FILE       "firmware.bin"
 #define WIFI_FIRMWARE_FILE  "DuetWiFiServer.bin" // Firmware to be loaded onto the ESP board

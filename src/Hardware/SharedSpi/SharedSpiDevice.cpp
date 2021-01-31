@@ -6,7 +6,7 @@
  */
 #if __LPC17xx__
 	#include "LPC/Hardware/SharedSpi/SharedSpiDevice.hpp"
-#elif STM32F4
+#elif STM32F4 || STM32F7
 	#include "STM32/Hardware/SharedSpi/SharedSpiDevice.hpp"
 #else
 
