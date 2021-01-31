@@ -2135,7 +2135,7 @@ GCodeResult Platform::DiagnosticTest(GCodeBuffer& gb, const StringRef& reply, Ou
 		break;
 
 	case (int)DiagnosticTestType::SetWriteBuffer:
-#if SAME70
+#if SAME70 || STM32F7
 		//TODO set cache to write-back instead
 		reply.copy("Write buffer not supported on this processor");
 		return GCodeResult::error;

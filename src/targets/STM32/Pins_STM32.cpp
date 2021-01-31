@@ -76,6 +76,8 @@ Pin SoftwareSPIPins[NumSoftwareSPIDevices][NumSoftwareSPIPins]; //GPIO pins for 
 #if defined(SERIAL_AUX_DEVICE)
     #if defined(__MBED__)
         Pin AuxSerialRxTxPins[NumberSerialPins] = {NoPin, NoPin}; //UART0 is the Main Serial on MBED so set Aux to nopin
+    #elif STM32F7
+        Pin AuxSerialRxTxPins[NumberSerialPins] = {PD9, PD8}; //Default to UART0
     #else
         Pin AuxSerialRxTxPins[NumberSerialPins] = {PA10, PA9}; //Default to UART0
     #endif
