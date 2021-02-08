@@ -101,12 +101,12 @@ constexpr PinEntry PinTable_PRNTR_V2[] =
 
 constexpr BoardDefaults prntr_v2_Defaults = {
 #ifdef STM32F4    
-	6,											// Number of drivers
+	6,									// Number of drivers
     {PC0, PC0, PC0, PC0, PC0, PC0},   	//enablePins
     {PE0, PB5, PD7, PD4, PD1, PD0},	    //stepPins
-    {PD14, PD13, PD12, PD11, PD10, PD9},  //dirPins
+    {PD14, PD13, PD12, PD11, PD10, PD9},//dirPins
 #if TMC_SOFT_UART
-    {PB10, PB10, PB10, PB10, PC6, PC6},   //uartPins
+    {PB10, PB10, PB10, PB10, PC6, PC6}, //uartPins
     6,                                      	// Smart drivers
 #endif
     0                                       	//digiPot Factor

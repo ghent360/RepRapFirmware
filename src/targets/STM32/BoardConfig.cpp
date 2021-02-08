@@ -234,6 +234,7 @@ static constexpr SDCardConfig SDCardConfigs[] = {
     {{0x768a39d6}, SSP1, {PA_5, PA_6, PB_5, PA_4}}, // SKR Pro
     {{0x94a2cc03}, SSP1, {PA_5, PA_6, PA_7, PA_4}}, // GTR
     {{0x8a5f5551, 0xd0c680ae}, SSPSDIO, {NoPin, NoPin, NoPin, NoPin}}, // Fly/SDIO
+    {{0xd0670fc8}, SSPSDIO, {NoPin, NoPin, NoPin, NoPin}}, // PRNTR_V2/SDIO
 };
 
 
@@ -258,17 +259,18 @@ FRESULT InitSDCard(uint32_t boardSig, FATFS *fs)
         {
             SPI::getSSPDevice(SDCardConfigs[conf].device)->initPins(SDCardConfigs[conf].pins[0], SDCardConfigs[conf].pins[1], SDCardConfigs[conf].pins[2], SDCardConfigs[conf].pins[3]);
             sd_mmc_setSSPChannel(0, SDCardConfigs[conf].device, SDCardConfigs[conf].pins[3]);
-        }
-        else
+        } else {
             sd_mmc_setSSPChannel(0, SDCardConfigs[conf].device, NoPin);
+        }
         rslt = f_mount (fs, "0:", 1);
         if (rslt == FR_OK)
         {
             debugPrintf("Config %d selected\n", conf);
             return FR_OK;
         }
-        if (SDCardConfigs[conf].device != SSPSDIO)
+        if (SDCardConfigs[conf].device != SSPSDIO) {
             ((HardwareSPI *)(SPI::getSSPDevice(SSP1)))->disable();
+        }
         sd_mmc_setSSPChannel(0, SSPNONE, NoPin);
         conf = (conf + 1) % ARRAY_SIZE(SDCardConfigs);
     }
