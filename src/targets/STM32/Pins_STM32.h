@@ -284,8 +284,6 @@ extern Pin AuxSerialRxTxPins[NumberSerialPins];
 
 #define SERIAL_MAIN_DEVICE  UART_Slot0 // SerialUSB  //USB
 
-
-
 #if defined(ESP8266WIFI)
     extern Pin EspDataReadyPin;
     extern Pin SamTfrReadyPin;

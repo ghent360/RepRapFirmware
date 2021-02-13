@@ -471,7 +471,7 @@ void Platform::Init() noexcept
 #if SAME5x
     SERIAL_MAIN_DEVICE.Start();
 #elif __LPC17xx__ || STM32F4 || STM32F7
-#if STM32F4// || STM32F7
+#if STM32F4
 	SERIAL_MAIN_DEVICE.Configure(PA10, PA9);
 #endif	
 	SERIAL_MAIN_DEVICE.begin(baudRates[0]);
