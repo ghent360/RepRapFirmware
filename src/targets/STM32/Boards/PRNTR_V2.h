@@ -1,5 +1,5 @@
-#ifndef PRNTR_VE_H
-#define PRNTR_VE_H
+#ifndef PRNTR_V2_H
+#define PRNTR_V2_H
 
 #include "../Pins_STM32.h"
 
@@ -113,4 +113,4 @@ constexpr BoardDefaults prntr_v2_Defaults = {
 #endif    
 };
 
-#endif // PRNTR_VE_H
+#endif // PRNTR_V2_H

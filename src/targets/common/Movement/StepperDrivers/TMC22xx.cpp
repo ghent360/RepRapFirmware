@@ -39,7 +39,7 @@
 
 #if TMC_SOFT_UART
 #include "TMCSoftUART.h"
-#else
+#else // !TMC_SOFT_UART
 #if defined(STM32F4) || defined(STM32F7)
 #else
 #include "sam/drivers/pdc/pdc.h"
@@ -48,7 +48,7 @@
 # error TMC22xx_HAS_MUX not defined
 #endif
 #endif // STM32F4 || STM32F7
-#endif
+#endif // TMC_SOFT_UART
 
 // Important note:
 // The TMC2224 does handle a write request immediately followed by a read request.
@@ -59,7 +59,11 @@
 // iMax = 0.32/(RSense + 0.02) (for VSENSE 0) iMax = 0.18/(RSense + 0.02) (for VSENSE = 1)
 // On typical TMC2209 driver boards RSense is 0.11Ohms on the Duet it is 0.082 Ohms
 #if __LPC17xx__ || STM32F4
+#ifdef TMC22XX_RESNSE
+constexpr float RSense = TMC22XX_RESNSE;
+#else
 constexpr float RSense = 0.11;
+#endif
 #else
 constexpr float RSense = 0.082;
 #endif
