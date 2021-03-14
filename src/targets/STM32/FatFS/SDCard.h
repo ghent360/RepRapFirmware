@@ -21,8 +21,6 @@
 #define CT_SDC        (CT_SD1|CT_SD2)    /* SD */
 #define CT_BLOCK      0x08        /* Block addressing */
 
-
-
 typedef uint8_t CARD_TYPE;
 
 class SDCard {
@@ -50,4 +48,4 @@ protected:
     bool isHighSpeed;
 };
 
-#endif
+#endif // SDCARD_H

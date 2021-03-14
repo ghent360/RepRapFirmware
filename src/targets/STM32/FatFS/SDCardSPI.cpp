@@ -55,9 +55,6 @@ constexpr uint32_t SCLK_INIT =  400000;     /* SCLK frequency under initializati
 #define CMD55    (55)        /* APP_CMD */
 #define CMD58    (58)        /* READ_OCR */
 
-
-
-
 #define SD_COMMAND_TIMEOUT 5000
 
 SDCardSPI::SDCardSPI(SSPChannel SSPSlot, Pin cs) noexcept {
@@ -69,7 +66,7 @@ SDCardSPI::SDCardSPI(SSPChannel SSPSlot, Pin cs) noexcept {
     sdcardBlockSize = 512;
     if (SSPSlot != SSPNONE)
     {
-        spi = new SharedSpiClient(SharedSpiDevice::GetSharedSpiDevice(SSPSlot), SCLK_INIT, SPI_MODE_0, cs, false);
+        spi = new SharedSpiClient(SharedSpiDevice::GetSharedSpiDevice(SSPSlot), SCLK_INIT, SpiMode::mode0, cs, false);
     }
     else
         spi = nullptr;
@@ -119,7 +116,6 @@ inline uint8_t SDCardSPI::xchg_spi (uint8_t dat) noexcept
     return rx;
 }
 
-
 /* Receive multiple byte */
 /* buff - Pointer to data buffer */
 /* btr - Number of bytes to receive (16, 64 or 512) */
@@ -135,8 +131,6 @@ inline void SDCardSPI::xmit_spi_multi (const uint8_t *buff, uint32_t btx) noexce
 {
     spi->TransceivePacket(buff, nullptr, btx);
 }
-
-
 
 /*-----------------------------------------------------------------------*/
 /* Wait for card ready                                                   */
@@ -374,7 +368,7 @@ uint8_t SDCardSPI::disk_initialize () noexcept
                         frequency = SCLK_SD25; // 25MB/s card interface - clock speed up to 50MHz
                         xchg_spi(0xFF);// send 8 dummy cycles before switching speed
 #ifdef SD_DEBUG
-                        debugPrintf("SDCard supports High Speed Mode\n");
+                        debugPrintf("SDCardSPI supports High Speed Mode\n");
 #endif
                     }
                     
@@ -460,7 +454,7 @@ DRESULT SDCardSPI::disk_write (const uint8_t *buff, uint32_t sector, uint32_t co
 {
     if (!count){
 #ifdef SD_DEBUG
-        debugPrintf("[SDCard:disk_write] Err: count is incorrect count=%" PRIu32 "", count);
+        debugPrintf("[SDCardSPI:disk_write] Err: count is incorrect count=%" PRIu32 "", count);
 #endif
         return RES_PARERR;        /* Check parameter */
     }
@@ -475,7 +469,7 @@ DRESULT SDCardSPI::disk_write (const uint8_t *buff, uint32_t sector, uint32_t co
             count = 0;
         } else {
 #ifdef SD_DEBUG
-            debugPrintf("[SDCard:disk_write] SingleSectorWrite Failed. Sector:%" PRIu32 "\n", sector);
+            debugPrintf("[SDCardSPI:disk_write] SingleSectorWrite Failed. Sector:%" PRIu32 "\n", sector);
 #endif
         }
     }
@@ -556,7 +550,7 @@ DRESULT SDCardSPI::disk_ioctl (uint8_t cmd, void *buff) noexcept
 
         default:
 #ifdef SD_DEBUG
-            debugPrintf("[SDCard:disk_ioctl] Unhandled command: %d", cmd);
+            debugPrintf("[SDCardSPI:disk_ioctl] Unhandled command: %d", cmd);
 #endif
             res = RES_PARERR;
     }

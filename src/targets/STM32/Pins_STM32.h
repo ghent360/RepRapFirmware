@@ -5,11 +5,19 @@
 #include "sd_mmc.h"
 #include "RepRapFirmware.h"
 #include "NVMEmulation.h"
+#if defined(STM32F4xx)
+#include "stm32f4xx_hal.h"
+#elif defined STM32F7xx
+#include "stm32f7xx_hal.h"
+#else
+#error "Architecture is not supported"
+#endif
 
 #ifndef UNUSED
 #define UNUSED(x) (void)(x)
 #endif
 
+#if defined(STM32F4xx)
 #define FIRMWARE_NAME "RepRapFirmware for STM32F4 based Boards"
 
 // Default board type
@@ -17,6 +25,17 @@
 #define ELECTRONICS "STM32F4"
 #define STM_ELECTRONICS_STRING "STM32F4"
 #define STM_BOARD_STRING "STM32F4"
+#elif defined(STM32F7)
+#define FIRMWARE_NAME "RepRapFirmware for STM32F7 based Boards"
+
+// Default board type
+#define DEFAULT_BOARD_TYPE BoardType::Stm32F4
+#define ELECTRONICS "STM32F7"
+#define STM_ELECTRONICS_STRING "STM32F7"
+#define STM_BOARD_STRING "STM32F7"
+#else
+#error "Architecture not supported"
+#endif
 
 #define FIRMWARE_FILE       "firmware.bin"
 #define WIFI_FIRMWARE_FILE  "DuetWiFiServer.bin" // Firmware to be loaded onto the ESP board
@@ -98,22 +117,30 @@
     #define HAS_WIFI_NETWORKING          0
     #define HAS_MASS_STORAGE             1
     #define SUPPORT_TELNET               0
-
+  #ifndef BOARD_NAME
     #define BOARD_NAME          "STM32F4"
+  #endif
+  #ifndef BOARD_SHORT_NAME
     #define BOARD_SHORT_NAME    "STM32"
+  #endif
 
 #endif
 
 
 // The physical capabilities of the machine
-constexpr size_t NumDirectDrivers = 11;               // The maximum number of drives supported by the electronics
+constexpr size_t NumDirectDrivers = 11;                   // The maximum number of drives supported by the electronics
 #if defined(SUPPORT_TMC22xx)
-    constexpr size_t MaxSmartDrivers = NumDirectDrivers;            // The maximum number of smart drivers
+    constexpr size_t MaxSmartDrivers = NumDirectDrivers;  // The maximum number of smart drivers
     constexpr size_t NumTmcDriversSenseChannels = 1;
+#ifdef ARDUINO_PRNTR_V2
+    #define TMC_SOFT_UART                   0
+    #define TMC22XX_RESNSE                  0.091
+#else
     #define TMC_SOFT_UART                   1
+#endif
     #define TMC22xx_HAS_ENABLE_PINS			1
     #define TMC22xx_VARIABLE_NUM_DRIVERS	1
-    #define TMC22xx_USE_SLAVEADDR           0
+    #define TMC22xx_USE_SLAVEADDR           1
     #define TMC22xx_HAS_MUX                 0
     #define SUPPORT_TMC22xx                 1
     #define HAS_STALL_DETECT                1
@@ -273,9 +300,7 @@ extern Pin AuxSerialRxTxPins[NumberSerialPins];
     extern Pin Aux2SerialRxTxPins[NumberSerialPins];
 #endif
 
-#define SERIAL_MAIN_DEVICE  SerialUSB  //USB
-
-
+#define SERIAL_MAIN_DEVICE  UART_Slot0 // SerialUSB  //USB
 
 #if defined(ESP8266WIFI)
     extern Pin EspDataReadyPin;
@@ -379,6 +404,7 @@ struct BoardEntry
 };
 
 #include "Boards/BIQU_SKR.h"
+#include "Boards/PRNTR_V2.h"
 #include "Boards/FLY.h"
 #include "Boards/Generic.h"
 #undef HAS_SMART_DRIVERS
@@ -393,6 +419,7 @@ constexpr BoardEntry LPC_Boards[] =
     {"fly_e3",      PinTable_FLY_E3,    ARRAY_SIZE(PinTable_FLY_E3),    fly_e3_Defaults},
     {"fly_cdyv2",      PinTable_FLY_CDYV2,    ARRAY_SIZE(PinTable_FLY_CDYV2),    fly_cdyv2_Defaults},
     {"biquskr_rrf_e3_1.0",      PinTable_BTT_RRF_E3_v1_0,    ARRAY_SIZE(PinTable_BTT_RRF_E3_v1_0),    btt_rrf_e3_1_0_Defaults},
+    {"PrntrV2",          PinTable_PRNTR_V2,          ARRAY_SIZE(PinTable_PRNTR_V2),          prntr_v2_Defaults},
     {"generic",      PinTable_Generic,    ARRAY_SIZE(PinTable_Generic),    Generic_Defaults},    
 };
 

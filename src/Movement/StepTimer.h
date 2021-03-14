@@ -66,7 +66,7 @@ public:
 	static constexpr uint32_t StepClockRate = 48000000/64;						// 750kHz
 #elif LPC17xx
 	static constexpr uint32_t StepClockRate = 1000000;                          // 1MHz
-#elif STM32F4
+#elif STM32F4 || STM32F7
 	static constexpr uint32_t StepClockRate = 1000000;                          // 1MHz
 #else
 	static constexpr uint32_t StepClockRate = SystemCoreClockFreq/128;					// Duet 2 and Maestro: use just under 1MHz
@@ -114,7 +114,7 @@ private:
 	static constexpr unsigned int MaxSyncCount = 10;
 #endif
 };
-#if STM32F4
+#if STM32F4 || STM32F7
 extern TIM_HandleTypeDef *STHandle;
 #endif
 // Function GetTimerTicks() is quite long for SAM4S and SAME70 processors, so it is moved to StepTimer.cpp and no longer inlined
@@ -130,7 +130,7 @@ inline __attribute__((always_inline)) StepTimer::Ticks StepTimer::GetTimerTicks(
 	return StepTc->COUNT.reg;
 # elif LPC17xx
 	return STEP_TC->TC;
-# elif STM32F4
+# elif STM32F4 || STM32F7
 	return __HAL_TIM_GET_COUNTER(STHandle);
 	return 0;
 # else
@@ -146,7 +146,7 @@ inline __attribute__((always_inline)) uint16_t StepTimer::GetTimerTicks16() noex
 	return (uint16_t)GetTimerTicks();
 #elif LPC17xx
 	return (uint16_t)STEP_TC->TC;
-#elif STM32F4
+#elif STM32F4 || STM32F7
 	return (uint16_t)__HAL_TIM_GET_COUNTER(STHandle);
 	return 0;
 #else

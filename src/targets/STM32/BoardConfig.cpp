@@ -318,6 +318,7 @@ static constexpr SDCardConfig SDCardConfigs[] = {
     {SSP1, {PA_5, PA_6, PA_7, PA_4, NoPin, NoPin}, {0x502, 0x502, 0x502, 0x1}}, // GTR
     {SSPSDIO, {PC_8, PC_9, PC_10, PC_11, PC_12, PD_2}, {0xc02, 0xc02, 0xc02, 0xc02, 0xc02, 0xc02}}, // Fly/SDIO
     {SSP3, {PC_10, PC_11, PC_12, PC_9, NoPin, NoPin}, {0x602, 0x602, 0x602, 0x1}}, // MKS?
+    {SSPSDIO, {NoPin, NoPin, NoPin, NoPin}}, // PRNTR_V2/SDIO
 };
 
 static bool TryConfig(uint32_t config, FATFS *fs)
@@ -411,7 +412,6 @@ static SSPChannel InitSDCard(uint32_t boardSig, FATFS *fs)
 
 void BoardConfig::Init() noexcept
 {
-
     constexpr char boardConfigPath[] = "0:/sys/board.txt";
     FIL configFile;
     FATFS fs;

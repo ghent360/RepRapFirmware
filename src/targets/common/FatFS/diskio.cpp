@@ -77,13 +77,13 @@ DRESULT disk_read (BYTE drv, BYTE *buff, DWORD sector, BYTE count) noexcept
     uint32_t retryDelay = SdCardRetryDelay;
     for(;;)
     {
-        uint32_t time = StepTimer::GetTimerTicks();
+        //uint32_t time = StepTimer::GetTimerTicks();
         DRESULT res = _ffs[drv]->disk_read(buff, sector, count);
-		time = StepTimer::GetTimerTicks() - time;
-		if (time > longestReadTime)
-		{
-			longestReadTime = time;
-		}
+		//time = StepTimer::GetTimerTicks() - time;
+		//if (time > longestReadTime)
+		//{
+		//	longestReadTime = time;
+		//}
         
         if (res == RES_OK) break;
         ++retryNumber;

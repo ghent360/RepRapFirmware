@@ -74,7 +74,7 @@ constexpr size_t NumAdcFilters = NumThermistorInputs + 3;
 # else
 constexpr size_t NumAdcFilters = NumThermistorInputs + 2;
 # endif
-#elif HAS_CPU_TEMP_SENSOR && STM32F4
+#elif HAS_CPU_TEMP_SENSOR && (STM32F4 || STM32F7)
 constexpr size_t VrefFilterIndex = NumThermistorInputs;
 constexpr size_t CpuTempFilterIndex = NumThermistorInputs + 1;
 constexpr size_t NumAdcFilters = NumThermistorInputs + 2;
@@ -156,7 +156,11 @@ enum class BoardType : uint8_t
 	Duet_5LC = 1
 #elif defined(__LPC17xx__)
 	Lpc = 1
+<<<<<<< HEAD
 #elif defined (__STM32F4__)
+=======
+#elif defined (STM32F4) || defined (STM32F7)
+>>>>>>> prntr_board
 	Stm32F4 = 1
 #else
 # error Unknown board
@@ -193,7 +197,11 @@ enum class DiagnosticTestType : unsigned int
 	TimeCRC32 = 107,				// time how long it takes to calculate CRC32
 	TimeGetTimerTicks = 108,		// time now long it takes to read the step clock
 
+<<<<<<< HEAD
 #if LPC17xx || STM32F4
+=======
+#if __LPC17xx__ || STM32F4 || STM32F7
+>>>>>>> prntr_board
 	PrintBoardConfiguration = 200,	// Prints out all pin/values loaded from SDCard to configure board
 #endif
 

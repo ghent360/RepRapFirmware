@@ -6,10 +6,7 @@
 
 #ifdef __cplusplus
 unsigned int DiskioGetAndClearMaxRetryCount() noexcept;
-# define NOEXCEPT	noexcept
 extern "C" {
-#else
-# define NOEXCEPT
 #endif
 
 #define _READONLY	0	/* 1: Remove write functions */
@@ -81,9 +78,7 @@ DRESULT disk_ioctl (BYTE, BYTE, void*) NOEXCEPT;
 
 
 #define _DISKIO
-
 #ifdef __cplusplus
-}
+} // extern "C"
 #endif
-
 #endif

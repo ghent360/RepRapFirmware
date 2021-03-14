@@ -52,8 +52,11 @@ constexpr uint32_t TransferTimeout = 10;				// any transfer should complete with
 // Full scale current has two ranges (VSENSE 1 or 0) and is given by
 // iMax = 0.32/(RSense + 0.02) (for VSENSE 0) iMax = 0.18/(RSense + 0.02) (for VSENSE = 1)
 // On typical TMC2209 driver boards RSense is 0.11Ohms on the Duet it is 0.082 Ohms
+#ifdef TMC22XX_RESNSE
+constexpr float RSense = TMC22XX_RESNSE;
+#else
 constexpr float RSense = 0.11;
-
+#endif
 // Which gives iMax values in mA of...
 constexpr int32_t iMax_VS1 = (int32_t)((0.18/(RSense + 0.02))*1000 + 0.5);
 constexpr int32_t iMax_VS0 = (int32_t)((0.32/(RSense + 0.02))*1000 + 0.5);

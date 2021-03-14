@@ -198,7 +198,7 @@ void GCodes::Init() noexcept
 	LedStripDriver::Init();
 #endif
 
-#if HAS_AUX_DEVICES && !LPC17xx && !STM32F4
+#if HAS_AUX_DEVICES && !LPC17xx && !STM32F4 && !STM32F7
 	// FIXME why don't we have this?
 	SERIAL_AUX_DEVICE.SetInterruptCallback(GCodes::CommandEmergencyStop);
 #endif

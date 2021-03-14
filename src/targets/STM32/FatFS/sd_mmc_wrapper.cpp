@@ -3,7 +3,6 @@
 //Wraps RRF "Slot 0" to SDCard on SSP1 (internal SDCard on smoothie)
 //wraps RRF "Slot 1" to SDCard on SSP0
 
-
 #include "sd_mmc_wrapper.h"
 #include "SDCardSPI.h"
 #include "SDCardSDIO.h"
@@ -102,4 +101,3 @@ uint32_t sd_mmc_get_interface_speed(uint8_t slot)
     
     return 0;
 }
-

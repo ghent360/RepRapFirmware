@@ -74,7 +74,7 @@ static_assert(FanCheckInterval < MinimumWarningInterval, "FanCheckInterval too l
 constexpr unsigned int MAIN_BAUD_RATE = 115200;			// Default communication speed of the USB if needed
 constexpr unsigned int AUX_BAUD_RATE = 57600;			// Ditto - for auxiliary UART device
 constexpr unsigned int AUX2_BAUD_RATE = 115200;			// Ditto - for second auxiliary UART device
-constexpr uint32_t SERIAL_MAIN_TIMEOUT = 2000;			// timeout in ms for sending data to the main serial/USB port
+constexpr uint32_t SERIAL_MAIN_TIMEOUT = 20000;			// timeout in ms for sending data to the main serial/USB port
 constexpr uint32_t AuxTimeout = 2000;					// timeout in ms for PanelDue replies
 #define PANEL_DUE_FIRMWARE_FILE "PanelDueFirmware.bin"
 
@@ -152,7 +152,7 @@ constexpr unsigned int MaxBlockIndent = 10;				// maximum indentation of GCode. 
 //     Using single-precision maths and up to 9-factor calibration: (9 + 5) * 4 bytes per point
 //     Using double-precision maths and up to 9-factor calibration: (9 + 5) * 8 bytes per point
 //   So 32 points using double precision arithmetic need 3584 bytes of stack space.
-#if SAM4E || SAM4S || SAME70 || SAME5x || STM32F4
+#if SAM4E || SAM4S || SAME70 || SAME5x || STM32F4 || STM32F7
 constexpr size_t MaxGridProbePoints = 441;				// 441 allows us to probe e.g. 400x400 at 20mm intervals
 constexpr size_t MaxXGridPoints = 41;					// Maximum number of grid points in one X row
 constexpr size_t MaxProbePoints = 32;					// Maximum number of G30 probe points
@@ -233,7 +233,7 @@ constexpr size_t MediumStringLength = MaxFilenameLength;
 constexpr size_t StringBufferLength = StringLength256;	// Length of the string buffer used by the expression parser
 constexpr size_t StringLengthLoggedCommand = StringLength100;	// Length of a string buffer for a command to be logged
 
-#if SAM4E || SAM4S || SAME70 || SAME5x || defined(ESP_NETWORKING) || LPC17xx || STM32F4
+#if SAM4E || SAM4S || SAME70 || SAME5x || defined(ESP_NETWORKING) || LPC17xx || STM32F4 || STM32F7
 // Increased GCODE_LENGTH on the SAM4 because M587 and M589 commands on the Duet WiFi can get very long and GCode meta commands can get even longer
 constexpr size_t GCODE_LENGTH = 201;					// maximum number of non-comment characters in a line of GCode including the null terminator
 #else
@@ -247,7 +247,7 @@ constexpr size_t SHORT_GCODE_LENGTH = 64;
 // When using RTOS, it is best if it is possible to fit an HTTP response header in a single buffer. Our headers are currently about 230 bytes long.
 // A note on reserved buffers: the worst case is when a GCode with a long response is processed. After string the response, there must be enough buffer space
 // for the HTTP responder to return a status response. Otherwise DWC never gets to know that it needs to make a rr_reply call and the system deadlocks.
-#if SAME70 || SAME5x || STM32F4
+#if SAME70 || SAME5x
 constexpr size_t OUTPUT_BUFFER_SIZE = 256;				// How many bytes does each OutputBuffer hold?
 constexpr size_t OUTPUT_BUFFER_COUNT = 40;				// How many OutputBuffer instances do we have?
 constexpr size_t RESERVED_OUTPUT_BUFFERS = 4;			// Number of reserved output buffers after long responses, enough to hold a status response
@@ -263,6 +263,10 @@ constexpr size_t RESERVED_OUTPUT_BUFFERS = 2;			// Number of reserved output buf
 constexpr uint16_t OUTPUT_BUFFER_SIZE = 256;            // How many bytes does each OutputBuffer hold?
 constexpr size_t OUTPUT_BUFFER_COUNT = 16;              // How many OutputBuffer instances do we have?
 constexpr size_t RESERVED_OUTPUT_BUFFERS = 2;           // Number of reserved output buffers after long responses. Must be enough for an HTTP header
+#elif  STM32F4 || STM32F7
+constexpr size_t OUTPUT_BUFFER_SIZE = 256;				// How many bytes does each OutputBuffer hold?
+constexpr size_t OUTPUT_BUFFER_COUNT = 40;				// How many OutputBuffer instances do we have?
+constexpr size_t RESERVED_OUTPUT_BUFFERS = 4;			// Number of reserved output buffers after long responses, enough to hold a status response
 #else
 # error
 #endif

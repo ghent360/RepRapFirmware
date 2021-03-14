@@ -35,8 +35,10 @@ SDCardSDIO::SDCardSDIO() noexcept {
     isHighSpeed = false;
     sdcardSectors = 0;
     sdcardBlockSize = 512;
+#ifdef USE_SDIO_LIB
     status = STA_NOINIT;
     sdio = &HardwareSDIO::SDIO1;
+#endif
 }
 
 void SDCardSDIO::set_max_frequency(uint32_t maxFreq) noexcept
@@ -46,7 +48,9 @@ void SDCardSDIO::set_max_frequency(uint32_t maxFreq) noexcept
 
 void SDCardSDIO::unmount() noexcept
 {
+#ifdef USE_SDIO_LIB
     status = STA_NOINIT;
+#endif
     isHighSpeed = false;
     frequency = SCLK_INIT;
 }
@@ -58,6 +62,7 @@ void SDCardSDIO::unmount() noexcept
 
 uint8_t SDCardSDIO::disk_initialize () noexcept
 {
+#ifdef USE_SDIO_LIB
     status = STA_NOINIT;
     if (sdio->Init() == MSD_OK)
     {
@@ -75,11 +80,16 @@ uint8_t SDCardSDIO::disk_initialize () noexcept
             status &= ~STA_NOINIT;
         }
     }
-
+#else
+    uint8_t status = SD_initialize();
+    if (!status) {
+        BSP_SD_GetCardInfo(&CardInfo);
+    }
+#endif
     return status;
 }
 
-
+#ifdef USE_SDIO_LIB
 
 /*-----------------------------------------------------------------------*/
 /* Get disk status                                                       */
@@ -193,4 +203,4 @@ DRESULT SDCardSDIO::disk_ioctl (uint8_t cmd, void *buff) noexcept
     return res;
 }
 
-
+#endif // USE_SDIO_LIB

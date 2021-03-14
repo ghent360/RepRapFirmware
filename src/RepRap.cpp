@@ -526,7 +526,7 @@ void RepRap::Init() noexcept
 	NVIC_EnableIRQ(WDT_IRQn);														// enable the watchdog early warning interrupt
 #elif LPC17xx
 	WatchdogInit();															// set wdt to 1 second. reset the processor on a watchdog fault
-#elif STM32F4
+#elif STM32F4 || STM32F7
 	NVIC_SetPriority(WWDG_IRQn, NvicPriorityWatchdog);								// set priority for watchdog interrupts
 	WatchdogInit();
 #else
@@ -563,7 +563,7 @@ void RepRap::Init() noexcept
 #endif
 
 	active = true;										// must do this before we start the network or call Spin(), else the watchdog may time out
-#if (LPC17xx || STM32F4) && SUPPORT_TMC22xx
+#if (LPC17xx || STM32F4 || STM32F7) && SUPPORT_TMC22xx
 	if (platform->AtxPower())
 	{
 		// ensure smart drivers are up and running
@@ -2688,7 +2688,7 @@ bool RepRap::WriteToolParameters(FileStore *f, const bool forceWriteOffsets) noe
 
 #if LPC17xx
     #include "LPC/FirmwareUpdate.hpp"
-#elif STM32F4
+#elif STM32F4 || STM32F7
     #include "STM32/FirmwareUpdate.hpp"
 #else
 
@@ -2806,7 +2806,7 @@ void RepRap::PrepareToLoadIap() noexcept
 		}
 	}
 	debugPrintf("Scan complete\n");
-	#endif
+#endif
 }
 
 void RepRap::StartIap() noexcept
@@ -2910,7 +2910,7 @@ void RepRap::StartIap() noexcept
 #elif LPC17xx
 	// The LPC176x/5x generates Bus Fault exception when accessing a reserved memory address
 	(void)*(reinterpret_cast<const volatile char*>(0x00080000));
-#elif STM32F4
+#elif defined(STM32F4) || defined(STM32F7)
 	// FIXME need to test this probably not the correct address
 	(void)*(reinterpret_cast<const volatile char*>(0x00080000));
 #else

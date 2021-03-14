@@ -15,7 +15,7 @@
 #include <RTOSIface/RTOSIface.h>
 #include <ObjectModel/ObjectModel.h>
 #include <General/NamedEnum.h>
-#if (LPC17xx || STM32F4) && (HAS_WIFI_NETWORKING == 0) && (HAS_RTOSPLUSTCP_NETWORKING == 0)
+#if (LPC17xx || STM32F4 || STM32F7) && (HAS_WIFI_NETWORKING == 0) && (HAS_RTOSPLUSTCP_NETWORKING == 0)
 # include "NoNetwork/Network.h"
 #else
 #if defined(DUET3_V03)

@@ -45,7 +45,9 @@ public:
 
 	uint16_t ReadAnalog() const noexcept;
 
-	AnalogChannelNumber GetAnalogChannel() const noexcept { return PinToAdcChannel(GetPin()); }
+	AnalogChannelNumber GetAnalogChannel() const noexcept {
+		return PinToAdcChannel(GetPin());
+	}
 
 	void WriteDigital(bool high) const noexcept;
 

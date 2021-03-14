@@ -69,7 +69,7 @@ public:
 	bool WriteDoCode(GCodeChannel channel, const char *code, size_t length) noexcept;
 	bool WriteWaitForAcknowledgement(GCodeChannel channel) noexcept;
 	bool WriteMessageAcknowledged(GCodeChannel channel) noexcept;
-#if LPC17xx || STM32F4
+#if LPC17xx || STM32F4 || STM32F7
 	void EmulateIap();
 #endif
 
@@ -136,7 +136,7 @@ private:
 
 	size_t AddPadding(size_t length) const noexcept;
 
-#if LPC17xx || STM32F4
+#if LPC17xx || STM32F4 || STM32F7
 	bool IapDataExchange(size_t len);
 #endif
 };

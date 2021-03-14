@@ -113,7 +113,7 @@ struct DriverInterface
 
 #  include <Sdhc.h>
 
-driverIdleFunc_t hsmci_set_idle_func(driverIdleFunc_t func) noexcept
+driverIdleFunc_t hsmci_set_idle_func(driverIdleFunc_t func) 
 {
 	// This function is not used on the SAME5x because the low-level driver is FreeRTOS-aware
 	return NULL;
@@ -123,12 +123,12 @@ driverIdleFunc_t hsmci_set_idle_func(driverIdleFunc_t func) noexcept
 
 #  include <hsmci/hsmci.h>
 
-static bool hsmci_adtc_start_glue(sdmmc_cmd_def_t cmd, uint32_t arg, uint16_t block_size, uint16_t nb_block, const void *dmaAddr) noexcept
+static bool hsmci_adtc_start_glue(sdmmc_cmd_def_t cmd, uint32_t arg, uint16_t block_size, uint16_t nb_block, const void *dmaAddr) 
 {
 	return hsmci_adtc_start(cmd, arg, block_size, nb_block, dmaAddr != NULL);
 }
 
-static bool hsmci_select_device_glue(uint8_t slot, uint32_t clock, uint8_t bus_width, bool high_speed) noexcept
+static bool hsmci_select_device_glue(uint8_t slot, uint32_t clock, uint8_t bus_width, bool high_speed) 
 {
 	hsmci_select_device(slot, clock, bus_width, high_speed);
 	return true;

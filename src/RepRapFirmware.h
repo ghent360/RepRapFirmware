@@ -65,6 +65,16 @@ const char *SafeStrptime(const char *buf, const char *format, struct tm *timeptr
 # include <CoreIO.h>
 # include <Devices.h>
 
+<<<<<<< HEAD
+=======
+#else
+
+// Functions needed for builds that use CoreNG. Not needed when using CoreN2G.
+extern "C" void delay(uint32_t ms);
+
+#endif
+
+>>>>>>> prntr_board
 #define SPEED_CRITICAL	__attribute__((optimize("O2")))
 
 // API level definition.
@@ -541,7 +551,7 @@ const NvicPriority NvicPriorityTimerServo = 5;
 #  else
     const NvicPriority NvicPriorityDMA = NvicPriorityADC;
 #  endif
-#elif STM32F4
+#elif STM32F4 || STM32F7
 const NvicPriority NvicPriorityWatchdog = 0;		// the secondary watchdog has the highest priority
 const NvicPriority NvicPriorityDriversSerialTMC = 1;// STM uses a software UART, make this a very high priority
 const NvicPriority NvicPriorityTimerPWM = 2;		// Run PWM timing as high as we can to avoid jitter
@@ -563,6 +573,7 @@ const NvicPriority NvicPriorityNetworkTick = 8;		// priority for network tick in
 const NvicPriority NvicPriorityEthernet = 8;		// priority for Ethernet interface
 # endif
 
+const NvicPriority NvicPriorityDMA = 6;				// end-of-DMA interrupt used by TMC drivers and HSMCI
 const NvicPriority NvicPrioritySpi = 8;				// SPI is used for network transfers on Duet WiFi/Duet vEthernet
 const NvicPriority NvicPriorityTwi = 9;				// TWI is used to read endstop and other inputs on the DueXn
 

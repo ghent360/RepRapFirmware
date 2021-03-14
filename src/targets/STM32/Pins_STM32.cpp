@@ -18,8 +18,8 @@ bool ATX_INITIAL_POWER_ON = true;           // Should external power be on/off a
 bool ATX_POWER_STATE = true;                // We may not have an actual pin so use this to track state
 
 //SDCard pins and settings
-Pin SdCardDetectPins[NumSdCards] = { NoPin, NoPin };
-Pin SdSpiCSPins[NumSdCards] =      { PA_4,  NoPin };    // Internal, external. Note:: ("slot" 0 in CORE is configured to be LCP SSP1 to match default RRF behaviour)
+Pin SdCardDetectPins[NumSdCards] = { PD3, NoPin };
+Pin SdSpiCSPins[NumSdCards] =      { NoPin, NoPin };    // Internal, external. Note:: ("slot" 0 in CORE is configured to be LCP SSP1 to match default RRF behaviour)
 uint32_t ExternalSDCardFrequency = 4000000;             //default to 4MHz
 #if HAS_LINUX_INTERFACE || HAS_WIFI_NETWORKING
     SSPChannel ExternalSDCardSSPChannel = SSPNONE;          // SSP0 used for network
@@ -79,8 +79,10 @@ Pin SPIPins[NumSPIDevices][NumSPIPins];                 //GPIO pins for hardware
 #if defined(SERIAL_AUX_DEVICE)
     #if defined(__MBED__)
         Pin AuxSerialRxTxPins[NumberSerialPins] = {NoPin, NoPin}; //UART0 is the Main Serial on MBED so set Aux to nopin
+    #elif STM32F7
+        Pin AuxSerialRxTxPins[NumberSerialPins] = {PD9, PD8}; //Default to UART0
     #else
-        Pin AuxSerialRxTxPins[NumberSerialPins] = {PA_10, PA_9}; //Default to UART0
+        Pin AuxSerialRxTxPins[NumberSerialPins] = {PA10, PA9}; //Default to UART0
     #endif
 #endif
 #if defined(SERIAL_AUX2_DEVICE)
@@ -117,9 +119,9 @@ void BOD_IRQHandler()
 }
 
 //Default to the Generic PinTable
-PinEntry *PinTable = (PinEntry *) PinTable_Generic;
-size_t NumNamedLPCPins = ARRAY_SIZE(PinTable_Generic);
-char lpcBoardName[MaxBoardNameLength] = "generic";
+PinEntry *PinTable = (PinEntry *) PinTable_PRNTR_V2;
+size_t NumNamedLPCPins = ARRAY_SIZE(PinTable_PRNTR_V2);
+char lpcBoardName[MaxBoardNameLength] = "PrntrBoard V2";
 
 bool IsEmptyPinArray(Pin *arr, size_t len) noexcept
 {

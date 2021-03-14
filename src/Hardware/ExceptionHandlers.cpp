@@ -19,7 +19,7 @@
 {
 	cpu_irq_disable();							// disable interrupts before we call any flash functions. We don't enable them again.
 	WatchdogReset();							// kick the watchdog
-#if STM32F4
+#if STM32F4 || STM32F7
 	//WatchdogDisable();
 #endif
 
@@ -44,15 +44,15 @@
 	{
 		if (initialReason != SoftwareResetReason::user)
 		{
-			if (SERIAL_MAIN_DEVICE.canWrite() == 0)
+			if (SERIAL_MAIN_DEVICE.availableForWrite() == 0)
 			{
 				fullReason |= (uint16_t)SoftwareResetReason::inUsbOutput;	// if we are resetting because we are stuck in a Spin function, record whether we are trying to send to USB
 			}
 
 #if HAS_AUX_DEVICES
-			if (SERIAL_AUX_DEVICE.canWrite() == 0
+			if (SERIAL_AUX_DEVICE.availableForWrite() == 0
 # ifdef SERIAL_AUX2_DEVICE
-				|| SERIAL_AUX2_DEVICE.canWrite() == 0
+				|| SERIAL_AUX2_DEVICE.availableForWrite() == 0
 # endif
 			   )
 			{
@@ -75,7 +75,7 @@
 
 #if LPC17xx
     LPC_SYSCTL->RSID = 0x3F;					// Clear bits in reset reasons stored in RSID
-#elif STM32F4
+#elif STM32F4 || STM32F7
 	// FIXME add any STM specific code here
 #elif !SAME5x
 	RSTC->RSTC_MR = RSTC_MR_KEY_PASSWD;			// ignore any signal on the NRST pin for now so that the reset reason will show as Software
@@ -152,7 +152,7 @@ extern "C" void WDT_IRQHandler() noexcept __attribute__((naked));
 void WDT_IRQHandler() noexcept
 {
 	LPC_WWDT->MOD &=~((uint32_t)(1<<2)); //SD::clear timout flag before resetting to prevent the Smoothie bootloader going into DFU mode
-#elif STM32F4
+#elif STM32F4 || STM32F7
 extern "C" void WWDG_IRQHandler() noexcept __attribute__((naked));
 void WWDG_IRQHandler() noexcept
 {

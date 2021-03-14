@@ -166,7 +166,7 @@ void IoPort::Release() noexcept
 		{
 			AnalogOut::ReleasePWMPin(GetPinNoCheck());
 		}
-#elif STM32F4
+#elif STM32F4 || STM32F7
 		if (logicalPinModes[logicalPin] == OUTPUT_PWM_HIGH || logicalPinModes[logicalPin] == OUTPUT_PWM_LOW)
 		{
 			AnalogOut::ReleasePWMPin(GetPinNoCheck());
@@ -598,7 +598,7 @@ uint16_t IoPort::ReadAnalog() const noexcept
 		pinMode(pin, mode);
 	}
 #else
-	pinMode(pin, mode);
+	if (pin != NoPin) pinMode(pin, mode);
 #endif
 }
 
@@ -614,6 +614,7 @@ uint16_t IoPort::ReadAnalog() const noexcept
 		return digitalRead(pin);
 	}
 #else
+	if (pin == NoPin) return 0;
 	return digitalRead(pin);
 #endif
 }
@@ -630,7 +631,7 @@ uint16_t IoPort::ReadAnalog() const noexcept
 		digitalWrite(pin, high);
 	}
 #else
-	digitalWrite(pin, high);
+	if (pin != NoPin) digitalWrite(pin, high);
 #endif
 }
 
